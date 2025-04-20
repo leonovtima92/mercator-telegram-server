@@ -1,0 +1,19 @@
+# Основные зависимости приложения
+quart>=0.18.4
+telethon>=1.28.5
+hypercorn>=0.15.0 # Или другой ASGI сервер, например gunicorn
+python-dotenv>=1.0.0
+beautifulsoup4>=4.11.0
+html5lib>=1.1
+httpx>=0.23.0
+cssutils>=2.6.0
+Pillow>=9.0.0
+
+pytest>=7.0.0
+black>=22.1.0
+flake8>=4.0.1
+
+
+pytest>=7.0.0
+black>=22.1.0
+flake8>=4.0.1

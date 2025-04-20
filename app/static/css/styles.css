@@ -1,0 +1,1358 @@
+:root {
+  --primary-color: #2b5278;
+  --secondary-color: #1e3c5a;
+  --accent-color: #3a97e8;
+  --bg-color: #f0f2f5;
+  --text-color: #1a1a1a;
+  --border-color: #dbdfe4;
+  --shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  --border-radius: 10px;
+  --splitter-width: 8px;
+  --splitter-color: rgba(0, 0, 0, 0.1);
+  --splitter-hover-color: rgba(0, 136, 204, 0.3);
+  --header-height: 60px;
+  --controls-width: 220px;
+}
+
+body {
+  font-family: "Roboto", "Segoe UI", sans-serif;
+  background-color: var(--bg-color);
+  color: var(--text-color);
+  margin: 0;
+  padding: 0;
+  line-height: 1.6;
+  min-height: 100vh;
+}
+
+/* Основной контейнер приложения */
+.app-container {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+/* Верхняя панель */
+.app-header {
+  background-color: var(--primary-color);
+  color: white;
+  padding: 0 20px;
+  height: var(--header-height);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.header-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  height: 100%;
+  max-width: 1400px;
+  margin: 0 auto;
+  width: 100%;
+  position: relative;
+}
+
+.app-title {
+  font-size: 20px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+/* Форма ввода URL */
+.url-form {
+  flex: 0 1 700px;
+  display: flex;
+  align-items: center;
+  margin: 0;
+  margin-left: auto;
+  box-sizing: border-box;
+}
+
+.form-group {
+  flex: 1;
+  position: relative;
+}
+
+.form-control {
+  width: 100%;
+  padding: 10px 15px;
+  padding-right: 50px; /* Отступ справа для кнопки */
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  font-size: 16px;
+  color: #333;
+  background-color: rgba(255, 255, 255, 0.9);
+  transition: all 0.2s;
+  box-sizing: border-box;
+}
+
+.form-control:focus {
+  border-color: white;
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.3);
+  background-color: white;
+}
+
+.btn {
+  padding: 8px;
+  min-width: 36px;
+  height: 36px;
+  background-color: rgba(0, 0, 0, 0.15);
+  color: white;
+  border: none;
+  border-radius: 0 8px 8px 0;
+  font-size: 16px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: absolute;
+  right: 0;
+  top: 0;
+  height: 100%;
+  z-index: 5;
+}
+
+.btn:hover {
+  background-color: rgba(0, 0, 0, 0.25);
+}
+
+/* Информация о канале */
+.channel-info {
+  display: flex;
+  align-items: center;
+  padding: 12px 20px;
+  background-color: white;
+  border-radius: var(--border-radius) var(--border-radius) 0 0;
+  box-shadow: 0 -1px 3px rgba(0, 0, 0, 0.05);
+  margin-bottom: 0;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.channel-link {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  text-decoration: none;
+  color: inherit;
+}
+
+.channel-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.channel-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.default-avatar {
+  width: 100%;
+  height: 100%;
+  background-color: var(--primary-color);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+}
+
+.channel-title {
+  font-weight: 600;
+  font-size: 16px;
+  color: var(--text-color);
+}
+
+/* Сообщение об ошибке */
+.error-message {
+  padding: 15px 20px;
+  background-color: #ffebee;
+  color: #c62828;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.error-message i {
+  font-size: 20px;
+}
+
+/* Основное содержимое */
+.main-content {
+  display: flex;
+  flex: 1;
+  max-width: 1400px;
+  margin: 0 auto;
+  width: 100%;
+  padding: 20px;
+  box-sizing: border-box;
+  gap: 20px;
+}
+
+/* Основная область с контентом */
+.content-area {
+  flex: 1;
+  min-width: 0; /* Предотвращает переполнение на маленьких экранах */
+}
+
+/* Боковая панель управления (теперь справа) */
+.controls-sidebar {
+  width: var(--controls-width);
+  background-color: white;
+  box-shadow: 0 0 5px rgba(0, 0, 0, 0.1);
+  padding: 15px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex-shrink: 0;
+  border-radius: var(--border-radius);
+  position: sticky;
+  top: calc(var(--header-height) + 20px);
+  height: fit-content;
+  z-index: 10;
+  overflow: hidden;
+}
+
+.control-group {
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  margin-bottom: 15px;
+  background-color: white;
+  overflow: hidden;
+  transition: max-height 0.3s ease;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.control-title {
+  background-color: #f5f7fa;
+  padding: 12px 15px;
+  font-weight: 500;
+  color: #444;
+  user-select: none;
+  position: relative;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.zoom-value,
+.font-size-display {
+  float: right;
+  font-size: 0.9em;
+  background-color: var(--primary-color);
+  color: white;
+  padding: 2px 8px;
+  border-radius: 15px;
+  margin-left: 5px;
+  text-align: center;
+}
+
+.controls {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  justify-content: center;
+  margin: 5px 0;
+}
+
+.control-group button {
+  padding: 7px;
+  background-color: #f0f2f5;
+  border: none;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  color: #555;
+  flex: 1;
+  min-width: 32px;
+}
+
+.control-group button:hover {
+  background-color: #e1e5ea;
+}
+
+.control-group button.active {
+  background-color: var(--accent-color);
+  color: white;
+}
+
+/* Контейнер-обертка для поста */
+.post-container-wrapper {
+  display: flex;
+  margin: 0 0 20px 0;
+  max-width: 100%;
+  width: 100%;
+  gap: 20px;
+  flex-direction: column;
+}
+
+/* Контейнер с постом */
+.post-container {
+  display: grid;
+  grid-template-columns: 1fr var(--splitter-width) 2fr;
+  grid-template-rows: 1fr;
+  background-color: white;
+  position: relative;
+  height: calc(100vh - var(--header-height) - 80px);
+  border-radius: 0 0 var(--border-radius) var(--border-radius);
+  box-shadow: var(--shadow);
+  flex: 1;
+  min-width: 0; /* Чтобы контейнер мог сжиматься */
+  overflow: hidden;
+}
+
+.layout-left,
+.layout-right {
+  aspect-ratio: 16/9;
+  height: auto !important;
+  max-height: calc(100vh - var(--header-height) - 80px);
+  width: 100%;
+}
+
+.layout-top {
+  grid-template-rows: minmax(200px, 1fr) var(--splitter-width) auto !important;
+  grid-template-columns: 1fr;
+  aspect-ratio: unset;
+  height: auto !important;
+  max-height: none !important;
+}
+
+/* Порядок элементов */
+.layout-left .media-block {
+  grid-column: 1;
+  grid-row: 1;
+}
+
+.layout-left .splitter {
+  grid-column: 2;
+  grid-row: 1;
+}
+
+.layout-left .text-block {
+  grid-column: 3;
+  grid-row: 1;
+}
+
+.layout-right .media-block {
+  grid-column: 3;
+  grid-row: 1;
+}
+
+.layout-right .splitter {
+  grid-column: 2;
+  grid-row: 1;
+}
+
+.layout-right .text-block {
+  grid-column: 1;
+  grid-row: 1;
+}
+
+.layout-top .media-block {
+  grid-column: 1;
+  grid-row: 1;
+}
+
+.layout-top .splitter {
+  grid-column: 1;
+  grid-row: 2;
+}
+
+.layout-top .text-block {
+  grid-column: 1;
+  grid-row: 3;
+  height: auto !important;
+  min-height: 100px;
+}
+
+/* Блок с медиа */
+.media-block {
+  background-color: #f5f5f5;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  overflow: hidden;
+  position: relative;
+  min-height: 200px;
+  width: 100%;
+  height: 100%;
+}
+
+/* Блок с текстом */
+.text-block {
+  box-sizing: border-box;
+  padding: 30px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  background-color: white;
+  border-radius: var(--border-radius);
+  box-shadow: var(--shadow);
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+/* Разделитель между блоками */
+.splitter {
+  position: relative;
+  background-color: var(--splitter-color);
+  z-index: 10;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  transition: background-color 0.2s;
+  will-change: transform;
+  touch-action: none;
+  cursor: col-resize;
+}
+
+.layout-top .splitter {
+  cursor: row-resize;
+}
+
+.splitter:hover,
+.splitter.active {
+  background-color: var(--splitter-hover-color);
+}
+
+.splitter-handle {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: var(--splitter-width);
+  height: 60px; /* Увеличиваем высоту для лучшего размещения */
+}
+
+.layout-top .splitter-handle {
+  flex-direction: row;
+  width: 60px; /* Увеличиваем ширину для лучшего размещения */
+  height: var(--splitter-width);
+}
+
+/* Базовые стили для треугольника (для макета - медиа слева) */
+.splitter-arrow {
+  width: 0;
+  height: 0;
+  border-style: solid;
+  border-width: 6px 0 6px 6px; /* Размер треугольника: увеличен */
+  border-color: transparent transparent transparent #555; /* Указывает вправо */
+  margin: 3px 0;
+}
+
+/* Второй треугольник (для макета - медиа слева) */
+.splitter-arrow:nth-child(2) {
+  transform: rotate(
+    180deg
+  ); /* Поворачиваем на 180 градусов, чтобы указывал влево */
+}
+
+/* Макет - медиа справа, стрелки смотрят влево */
+.layout-right .splitter-arrow {
+  border-width: 6px 6px 6px 0; /* Размер треугольника */
+  border-color: transparent #555 transparent transparent; /* Указывает влево */
+}
+
+.layout-right .splitter-arrow:nth-child(2) {
+  transform: rotate(
+    180deg
+  ); /* Поворачиваем на 180 градусов, чтобы указывал вправо */
+}
+
+/* Макет - медиа сверху, стрелки смотрят вниз */
+.layout-top .splitter-arrow {
+  border-width: 6px 6px 0 6px; /* Размер треугольника */
+  border-color: #555 transparent transparent transparent; /* Указывает вниз */
+  margin: 0 3px; /* Корректируем отступы для горизонтального расположения */
+}
+
+.layout-top .splitter-arrow:nth-child(2) {
+  transform: rotate(
+    180deg
+  ); /* Поворачиваем на 180 градусов, чтобы указывал вверх */
+}
+
+/* Медиа блок с отступом для стрелок в режимах [data-resizing="true"] */
+.media-block[data-resizing="true"],
+.text-block[data-resizing="true"] {
+  transition: none !important;
+  will-change: height;
+  max-height: none !important;
+  min-height: 150px !important;
+}
+
+/* Содержимое медиа-блока */
+.media-content {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  position: relative;
+  overflow: hidden;
+}
+
+.current-media {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  min-height: 250px;
+}
+
+.media-element {
+  display: block;
+  transition: transform 0.2s ease;
+  user-select: none;
+  cursor: grab;
+  min-height: 100px;
+}
+
+.current-media.dragging,
+.current-media.dragging * {
+  cursor: grabbing !important;
+}
+
+.media-controls {
+  position: absolute;
+  bottom: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 5px 10px;
+  background-color: rgba(0, 0, 0, 0.5);
+  border-radius: 20px;
+  opacity: 0;
+  transition: opacity 0.3s;
+  z-index: 5;
+}
+
+.media-block:hover .media-controls {
+  opacity: 1;
+}
+
+.media-nav {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: none;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: rgba(255, 255, 255, 0.8);
+  color: #333;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.media-nav:hover {
+  background: white;
+}
+
+.media-counter {
+  color: white;
+  font-size: 14px;
+  user-select: none;
+}
+
+.no-media {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  width: 100%;
+  color: #999;
+  text-align: center;
+  gap: 10px;
+}
+
+.no-media i {
+  font-size: 48px;
+  margin-bottom: 10px;
+}
+
+.media-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  width: 100%;
+  color: #666;
+  text-align: center;
+  gap: 15px;
+  padding: 20px;
+  background-color: #f5f5f5;
+  border-radius: 8px;
+}
+
+.media-placeholder i {
+  font-size: 50px;
+  color: #aaa;
+}
+
+.media-placeholder div {
+  font-size: 16px;
+  font-weight: 500;
+  max-width: 300px;
+}
+
+.media-details {
+  font-size: 14px !important;
+  font-weight: normal !important;
+  color: #777;
+  margin-top: -5px;
+}
+
+.retry-media-btn {
+  background-color: var(--accent-color);
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 8px 15px;
+  margin-top: 10px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background-color 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.retry-media-btn::before {
+  content: "\f021";
+  font-family: "Font Awesome 6 Free";
+  font-weight: 900;
+}
+
+.retry-media-btn:hover {
+  background-color: #2980b9;
+}
+
+/* Стили для текста */
+.post-text-content {
+  font-size: 16px;
+  line-height: 1.6;
+  color: var(--text-color);
+  word-break: break-word;
+  overflow-wrap: break-word;
+  width: 100%;
+  max-width: 100%;
+  padding: 0 10px 20px 0; /* Дополнительный отступ справа и снизу */
+}
+
+.post-text-content p {
+  margin: 0 0 16px 0;
+  max-width: 100%;
+}
+
+.post-text-content a {
+  color: var(--accent-color);
+  text-decoration: none;
+  word-break: break-all;
+}
+
+.post-text-content a:hover {
+  text-decoration: underline;
+}
+
+.post-text-content img,
+.post-text-content video {
+  max-width: 100%;
+  height: auto;
+  border-radius: 8px;
+  margin-bottom: 16px;
+  object-fit: contain;
+}
+
+.post-text-content pre {
+  background-color: #f5f5f5;
+  padding: 15px;
+  border-radius: 8px;
+  font-family: "Courier New", Courier, monospace;
+  overflow-x: auto;
+  margin-bottom: 16px;
+  white-space: pre-wrap;
+  max-width: 100%;
+}
+
+.post-text-content blockquote {
+  border-left: 3px solid var(--accent-color);
+  padding-left: 15px;
+  margin-left: 0;
+  color: #555;
+  margin-bottom: 16px;
+  max-width: 100%;
+}
+
+/* Выделение текста */
+.highlight {
+  background-color: rgba(255, 140, 0, 0.6);
+  padding: 2px 0;
+  cursor: pointer;
+  position: relative;
+  border-radius: 2px;
+}
+
+/* Скрытый текст */
+.highlight.hidden {
+  background-color: rgba(0, 0, 0, 0.1);
+  color: transparent;
+  user-select: none;
+}
+
+/* Активное выделение */
+.highlight.active {
+  outline: 2px dashed rgba(255, 140, 0, 0.8);
+}
+
+/* Меню для удаления выделения */
+.remove-highlight-menu {
+  position: absolute;
+  background-color: white;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+  border-radius: 4px;
+  padding: 5px;
+  z-index: 1000;
+  display: none;
+}
+
+.remove-highlight-menu.visible {
+  display: block;
+}
+
+.remove-highlight-menu button {
+  display: block;
+  width: 100%;
+  padding: 8px 12px;
+  border: none;
+  background: none;
+  text-align: left;
+  cursor: pointer;
+  border-radius: 3px;
+  color: #333;
+  font-size: 14px;
+}
+
+.remove-highlight-menu button:hover {
+  background-color: #f5f5f5;
+}
+
+/* Контейнер для всплывающих уведомлений */
+.toast-container {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  z-index: 9999;
+}
+
+.toast {
+  background: white;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  border-radius: 4px;
+  padding: 12px 15px;
+  margin-top: 10px;
+  display: flex;
+  align-items: center;
+  animation: toast-in 0.3s ease forwards;
+  max-width: 300px;
+}
+
+.toast-success {
+  border-left: 4px solid #4caf50;
+}
+
+.toast-error {
+  border-left: 4px solid #f44336;
+}
+
+.toast-info {
+  border-left: 4px solid #2196f3;
+}
+
+.toast i {
+  margin-right: 10px;
+  font-size: 18px;
+}
+
+.toast-success i {
+  color: #4caf50;
+}
+
+.toast-error i {
+  color: #f44336;
+}
+
+.toast-info i {
+  color: #2196f3;
+}
+
+.toast span {
+  flex: 1;
+}
+
+.toast.fade-out {
+  animation: toast-out 0.3s ease forwards;
+}
+
+@keyframes toast-in {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes toast-out {
+  from {
+    transform: translateX(0);
+    opacity: 1;
+  }
+  to {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+}
+
+/* Индикаторы изменения размера */
+body.resizing {
+  cursor: default !important;
+  user-select: none;
+}
+
+body.resizing-horizontal {
+  cursor: col-resize !important;
+}
+
+body.resizing-vertical {
+  cursor: row-resize !important;
+}
+
+body.resizing .text-block,
+body.resizing .media-block {
+  transition: none !important; /* Отключаем анимации при изменении размера */
+  will-change: width, height; /* Оптимизация для GPU */
+}
+
+/* Анимации загрузки медиа */
+.media-loader {
+  position: absolute;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(255, 255, 255, 0.8);
+  z-index: 10;
+  opacity: 1;
+  transition: opacity 0.3s;
+}
+
+.media-loader.fade-out {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.media-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  width: 100%;
+  color: #e74c3c;
+  text-align: center;
+  gap: 10px;
+  background-color: #ffecec;
+  border-radius: 8px;
+}
+
+.media-error i {
+  font-size: 48px;
+  margin-bottom: 10px;
+}
+
+.media-error p {
+  font-size: 16px;
+  margin: 0;
+  font-weight: 500;
+}
+
+/* Меню выделения */
+.selection-menu {
+  position: fixed;
+  display: none;
+  background-color: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+  z-index: 1000;
+  padding: 5px;
+  display: flex;
+  gap: 5px;
+  transform: translate(-50%, -100%);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s;
+}
+
+.selection-menu.visible {
+  display: flex;
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.selection-menu button {
+  width: 36px;
+  height: 36px;
+  border-radius: 4px;
+  border: none;
+  background-color: white;
+  color: #555;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.selection-menu button:hover {
+  background-color: #f0f2f5;
+}
+
+.selection-menu button[data-action="highlight"]:hover {
+  background-color: rgba(255, 165, 0, 0.3);
+  color: #333;
+}
+
+.selection-menu button[data-action="hide"]:hover {
+  background-color: rgba(0, 0, 0, 0.1);
+  color: #333;
+}
+
+/* Всплывающие подсказки */
+.tooltip {
+  position: relative;
+}
+
+.tooltip:hover::after {
+  content: attr(title);
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 4px 8px;
+  background-color: rgba(0, 0, 0, 0.8);
+  color: white;
+  border-radius: 4px;
+  font-size: 12px;
+  white-space: nowrap;
+  z-index: 100;
+  margin-bottom: 5px;
+}
+
+/* Пустое состояние */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 50vh;
+  padding: 20px;
+  text-align: center;
+  color: #666;
+}
+
+.empty-icon {
+  font-size: 48px;
+  color: #ccc;
+  margin-bottom: 20px;
+}
+
+.empty-state h2 {
+  font-weight: 500;
+  margin-bottom: 10px;
+}
+
+.empty-state p {
+  color: #888;
+}
+
+/* Компактный режим для действий */
+.compact-actions {
+  flex-wrap: wrap;
+  gap: 15px;
+}
+
+/* Дополнительные стили для группы кнопок вписывания */
+.fit-controls {
+  margin-top: 5px;
+  justify-content: space-between;
+}
+
+/* Адаптив */
+@media (max-width: 992px) {
+  .main-content {
+    flex-direction: column;
+    padding: 10px;
+  }
+
+  .controls-sidebar {
+    width: 100%;
+    order: -1;
+    top: 60px;
+    position: static;
+    margin-top: 15px;
+  }
+
+  .post-container {
+    aspect-ratio: 16/9;
+    height: auto !important;
+    max-height: none !important;
+  }
+
+  .layout-left .media-block,
+  .layout-right .media-block {
+    min-height: 200px;
+  }
+
+  .layout-left .splitter,
+  .layout-right .splitter {
+    height: 100%;
+  }
+
+  .layout-left .text-block,
+  .layout-right .text-block {
+    height: 100%;
+  }
+}
+
+@media (max-width: 768px) {
+  .header-content {
+    flex-direction: column;
+    padding: 10px 0;
+  }
+
+  .app-header {
+    height: auto;
+  }
+
+  .app-title {
+    position: static;
+    margin-right: 0;
+    margin-bottom: 10px;
+  }
+
+  .url-form {
+    width: 100%;
+    padding-left: 0;
+  }
+
+  .post-container {
+    max-height: 80vh;
+  }
+
+  .media-block {
+    min-height: 250px;
+  }
+}
+
+@media (max-width: 576px) {
+  .control-group {
+    width: 100%;
+  }
+
+  .controls {
+    justify-content: center;
+  }
+
+  .media-block {
+    min-height: 200px;
+  }
+
+  .text-block {
+    padding: 20px; /* Меньший отступ на маленьких экранах */
+  }
+}
+
+/* Всплывающее уведомление о размере шрифта */
+.font-size-toast {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background-color: rgba(0, 0, 0, 0.7);
+  color: white;
+  padding: 12px 20px;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: 500;
+  z-index: 1000;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+  text-align: center;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+}
+
+.font-size-toast.visible {
+  opacity: 1;
+}
+
+/* Всплывающее уведомление о масштабе */
+.zoom-size-toast {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.zoom-size-toast i {
+  font-size: 14px;
+}
+
+/* Стили для отображения только текстового блока */
+.post-container.layout-text-only {
+  display: block;
+  width: 100%; /* Сохраняем полную ширину контейнера */
+  margin: 0;
+  height: auto !important;
+  background-color: white;
+  box-shadow: var(--shadow);
+  border-radius: var(--border-radius);
+}
+
+.layout-text-only .text-block {
+  width: 100%;
+  height: auto;
+  min-height: 300px;
+  padding: 25px;
+  overflow-y: auto;
+  border-radius: var(--border-radius);
+}
+
+/* Контейнер-обертка при отсутствии медиа сохраняет размеры */
+.post-container-wrapper.no-media-wrapper {
+  width: 100%;
+  margin: 0;
+}
+
+/* Медиа-запросы для layout-text-only */
+@media (max-width: 992px) {
+  .post-container.layout-text-only {
+    max-width: 95%;
+  }
+}
+
+@media (max-width: 768px) {
+  .layout-text-only .text-block {
+    padding: 20px;
+  }
+}
+
+@media (max-width: 576px) {
+  .layout-text-only .text-block {
+    padding: 15px;
+    min-height: 200px;
+  }
+}
+
+.media-block[data-resizing="true"],
+.text-block[data-resizing="true"] {
+  transition: none !important;
+  will-change: height;
+  max-height: none !important;
+  min-height: 150px !important;
+}
+
+.layout-top .media-block {
+  height: auto;
+  min-height: 150px;
+  width: 100%;
+}
+
+.layout-top .text-block {
+  min-height: 150px;
+  width: 100%;
+}
+
+/* Стили для кнопки скрытия медиа */
+.btn-action[data-action="toggle-media"].active {
+  background-color: #f44336;
+  color: white;
+}
+
+/* Стили для кнопки скрытия текста */
+.btn-action[data-action="toggle-text"].active {
+  background-color: #f44336;
+  color: white;
+}
+
+/* Стили для скрытого медиа-блока */
+.media-block.hidden-block {
+  display: none !important;
+}
+
+/* Стили для скрытого текстового блока */
+.text-block.hidden-block {
+  display: none !important;
+}
+
+/* Стили для скрытого разделителя */
+.splitter.hidden-block {
+  display: none !important;
+}
+
+/* Если медиа скрыто, меняем стили контейнера */
+.post-container.layout-left.media-is-hidden,
+.post-container.layout-right.media-is-hidden {
+  grid-template-columns: 0px 0px 1fr !important; /* Только текст */
+  aspect-ratio: 16/9; /* Сохраняем пропорции для горизонтальных макетов */
+  height: auto !important;
+  max-height: calc(100vh - var(--header-height) - 80px);
+  width: 100%;
+}
+.post-container.layout-top.media-is-hidden {
+  grid-template-rows: 0px 0px 1fr !important; /* Только текст */
+  aspect-ratio: unset; /* В вертикальном макете пропорции не нужны */
+  height: auto !important;
+  max-height: none !important;
+}
+
+/* Если текст скрыт, меняем стили контейнера */
+.post-container.layout-left.text-is-hidden,
+.post-container.layout-right.text-is-hidden {
+  grid-template-columns: 1fr 0px 0px !important; /* Только медиа */
+  aspect-ratio: 16/9; /* Сохраняем пропорции для горизонтальных макетов */
+  height: auto !important;
+  max-height: calc(100vh - var(--header-height) - 80px);
+  width: 100%;
+}
+.post-container.layout-top.text-is-hidden {
+  grid-template-rows: 1fr 0px 0px !important; /* Только медиа */
+  aspect-ratio: unset; /* В вертикальном макете пропорции не нужны */
+  height: auto !important;
+  max-height: none !important;
+}
+
+/* Текстовый блок занимает всю ширину, когда медиа скрыт */
+.post-container.layout-left.media-is-hidden .text-block,
+.post-container.layout-right.media-is-hidden .text-block,
+.post-container.layout-top.media-is-hidden .text-block {
+  overflow-y: auto !important;
+  position: relative !important;
+  height: auto !important;
+  min-height: 300px !important;
+  max-height: none !important;
+  display: block !important;
+  width: 100% !important;
+}
+
+/* Убедимся, что в разных макетах текстовый блок имеет полосу прокрутки */
+.layout-left.media-is-hidden,
+.layout-right.media-is-hidden {
+  display: block !important;
+  height: auto !important;
+  min-height: 300px !important;
+  max-height: none !important;
+  grid-template-columns: 1fr !important;
+  grid-template-rows: 1fr !important;
+  overflow: visible !important;
+}
+
+/* Форсируем отображение полосы прокрутки для текстового блока в горизонтальных макетах */
+.layout-left.media-is-hidden .text-block,
+.layout-right.media-is-hidden .text-block {
+  overflow-y: scroll !important; /* Всегда показываем полосу прокрутки */
+  height: auto !important;
+  min-height: 300px !important;
+  max-height: none !important;
+}
+
+/* Сбрасываем ограничения для контейнера поста при скрытом медиа */
+.post-container.layout-left.media-is-hidden,
+.post-container.layout-right.media-is-hidden {
+  max-height: none !important;
+  height: auto !important;
+  aspect-ratio: unset !important;
+}
+
+/* Стили для предупреждения о скрытых блоках */
+.warning-message {
+  display: none;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background-color: rgba(244, 67, 54, 0.9);
+  color: white;
+  padding: 15px 20px;
+  border-radius: 8px;
+  text-align: center;
+  font-weight: 500;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+  z-index: 100;
+}
+
+.warning-message.visible {
+  display: block;
+}
+
+/* Медиа блок занимает всю ширину, когда текст скрыт */
+.post-container.layout-left.text-is-hidden .media-block,
+.post-container.layout-right.text-is-hidden .media-block {
+  grid-column: 1 !important;
+  grid-row: 1 !important;
+  width: 100% !important;
+  height: auto !important;
+  min-height: 300px !important;
+  display: block !important;
+}
+
+/* Стили для компактной панели управления */
+.compact-control-panel {
+  display: none !important;
+}
+
+.btn-action.toggled,
+.btn-layout.active {
+  background-color: #e0e0e0; /* Цвет для активных кнопок макета */
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+/* Специфичный стиль для активных кнопок toggle-media и toggle-text */
+.btn-action[data-action="toggle-media"].toggled,
+.btn-action[data-action="toggle-text"].toggled {
+  background-color: #dc3545; /* Красный цвет фона (Bootstrap danger color) */
+  color: white; /* Белый цвет иконки/текста для контраста */
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.3); /* Чуть более темная тень */
+}
+
+/* Убедимся, что при наведении на активную красную кнопку цвет не меняется на стандартный серый */
+.btn-action[data-action="toggle-media"].toggled:hover,
+.btn-action[data-action="toggle-text"].toggled:hover {
+  background-color: #c82333; /* Более темный красный при наведении */
+}

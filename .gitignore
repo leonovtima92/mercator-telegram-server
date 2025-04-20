@@ -1,0 +1,13 @@
+# Файлы настроек VS Code
+.vscode/
+
+# Сборка проекта
+/build/
+/dist/
+/venv/
+# Файлы логов
+*.log
+
+.env
+tele_session.session
+tele_session.session-journal

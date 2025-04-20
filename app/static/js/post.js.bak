@@ -1,0 +1,2778 @@
+// Global variables
+let currentMedia = null;
+let currentMediaIndex = 0;
+let zoomLevel = 1;
+let fontSizePercent = 100;
+let isDragging = false;
+let dragStartX = 0;
+let dragStartY = 0;
+let offsetX = 0;
+let offsetY = 0;
+let isResizing = false;
+let resizeStartPos = 0;
+let initialTextWidth = 0;
+let initialMediaWidth = 0;
+let initialTextHeight = 0;
+let initialMediaHeight = 0;
+
+// Хранилище настроек для каждого медиа-файла
+let mediaSettings = {};
+
+// Настройки
+const settings = {
+  fontSize: 16,
+  layout: "left",
+  zoomStep: 0.1,
+  maxZoom: 5,
+  minZoom: 0.5,
+};
+
+// Глобальная переменная для хранения удаленных фрагментов текста
+let removedTextFragments = [];
+
+// Загружаем удаленные фрагменты при загрузке страницы
+document.addEventListener("DOMContentLoaded", () => {
+  // Инициализация сворачиваемых панелей
+  initCollapsiblePanels();
+  initActionButtons(); // Инициализация Скачать, Полный экран и т.д.
+  initShowHiddenButton(); // Инициализация Показать скрытый текст
+  initToggleMediaButton(); // Инициализация Скрыть/Показать медиа
+  initToggleTextButton(); // Инициализация Скрыть/Показать текст
+
+  // Загружаем сохраненные фрагменты
+  loadRemovedFragments();
+
+  // Проверим доступность медиа и запустим инициализацию
+  console.log("DOMContentLoaded Event, Media List:", mediaList);
+
+  // Получаем ссылки на блоки медиа и текста
+  const mediaBlock = document.querySelector(".media-block");
+  const textBlock = document.querySelector(".text-block");
+  const postContainer = document.querySelector(".post-container");
+  const postContainerWrapper = document.querySelector(
+    ".post-container-wrapper"
+  );
+  const splitter = document.querySelector(".splitter");
+  const mediaControls = document.querySelector(".media-controls-group");
+
+  // Проверяем наличие медиа-файлов
+  const hasMedia = mediaList && mediaList.length > 0;
+
+  if (hasMedia) {
+    // Если медиа есть, показываем медиа-блок и инициализируем только базовые функции
+    if (mediaBlock) mediaBlock.style.display = "flex";
+    if (splitter) splitter.style.display = "block";
+    if (mediaControls) mediaControls.style.display = "flex";
+
+    // Убираем класс no-media-wrapper если он был
+    if (postContainerWrapper) {
+      postContainerWrapper.classList.remove("no-media-wrapper");
+    }
+
+    // Инициализация хранилища настроек медиа
+    initMediaSettings();
+
+    initMediaViewer();
+    initLayoutControls(); // Восстановлено
+    initFontSizeControls(); // Восстановлено
+    initZoomControls(); // Восстановлено
+    initSelectionMenu();
+    initResizableSplitter();
+  } else {
+    // Если медиа нет, скрываем медиа-блок и связанные элементы
+    if (mediaBlock) mediaBlock.style.display = "none";
+    if (splitter) splitter.style.display = "none";
+    if (mediaControls) mediaControls.style.display = "none";
+
+    // Добавляем класс для wrapper
+    if (postContainerWrapper) {
+      postContainerWrapper.classList.add("no-media-wrapper");
+    }
+
+    // Настраиваем отображение только текстового блока
+    if (postContainer) {
+      postContainer.classList.remove(
+        "layout-left",
+        "layout-right",
+        "layout-top"
+      );
+      postContainer.classList.add("layout-text-only");
+
+      // Устанавливаем стили для отображения только текста
+      postContainer.style.gridTemplateColumns = "1fr";
+      postContainer.style.gridTemplateRows = "1fr";
+
+      // Если есть текстовый блок, делаем его на всю ширину
+      if (textBlock) {
+        textBlock.style.width = "100%";
+        textBlock.style.height = "auto";
+        textBlock.style.maxWidth = "100%";
+      }
+    }
+
+    // Инициализируем только нужные функции
+    initFontSizeControls(); // Восстановлено
+    initSelectionMenu();
+  }
+
+  // Убедимся, что текст корректно вписывается в блок
+  adjustTextContent();
+  window.addEventListener("resize", adjustTextContent);
+
+  // Добавляем обработчик для обновления обработчиков при изменении содержимого
+  // Нужно для обработки ситуаций, когда новые выделения добавляются динамически
+  const textContent = document.querySelector(".post-text-content");
+  if (textContent) {
+    const observer = new MutationObserver(() => {
+      addClickHandlersToExistingHighlights();
+    });
+
+    observer.observe(textContent, {
+      childList: true,
+      subtree: true,
+    });
+  }
+
+  // Инициализация всех компонентов
+  initAll();
+});
+
+// Инициализация хранилища настроек для медиа-файлов
+function initMediaSettings() {
+  if (!mediaList || mediaList.length === 0) return;
+
+  // Создаем запись настроек для каждого медиа
+  mediaList.forEach((media, index) => {
+    mediaSettings[index] = {
+      zoom: 1, // Начальный масштаб 100%
+      positionX: 0, // Начальная позиция X
+      positionY: 0, // Начальная позиция Y
+    };
+  });
+
+  console.log("Инициализация хранилища настроек медиа:", mediaSettings);
+}
+
+// Сохранение настроек текущего медиа
+function saveCurrentMediaSettings() {
+  if (
+    currentMedia &&
+    typeof currentMediaIndex !== "undefined" &&
+    mediaSettings[currentMediaIndex]
+  ) {
+    // Получаем текущую трансформацию
+    const transform = getComputedStyle(currentMedia).transform;
+    const matrix = new DOMMatrix(transform);
+
+    // Сохраняем настройки
+    mediaSettings[currentMediaIndex] = {
+      zoom: zoomLevel,
+      positionX: matrix.e,
+      positionY: matrix.f,
+    };
+
+    console.log(
+      `Сохранены настройки для медиа #${currentMediaIndex}:`,
+      mediaSettings[currentMediaIndex]
+    );
+  }
+}
+
+// Применение сохраненных настроек к медиа
+function applyMediaSettings(index) {
+  if (mediaSettings[index] && currentMedia) {
+    // Устанавливаем масштаб из сохраненных настроек
+    zoomLevel = mediaSettings[index].zoom;
+
+    // Обновляем отображение значения масштаба
+    updateZoomValue();
+
+    // Применяем трансформацию
+    currentMedia.style.transform = `translate(${mediaSettings[index].positionX}px, ${mediaSettings[index].positionY}px) scale(${zoomLevel})`;
+
+    console.log(
+      `Применены настройки для медиа #${index}:`,
+      mediaSettings[index]
+    );
+  }
+}
+
+// Функция для корректной обработки текста в блоке
+function adjustTextContent() {
+  const textBlock = document.querySelector(".text-block");
+  const textContent = document.querySelector(".post-text-content");
+
+  if (textBlock && textContent) {
+    // Убедиться, что все изображения и медиа в тексте имеют max-width: 100%
+    const mediaElements = textContent.querySelectorAll("img, video, iframe");
+    mediaElements.forEach((el) => {
+      el.style.maxWidth = "100%";
+      el.style.height = "auto";
+    });
+
+    // Убедиться, что pre блоки имеют overflow
+    const preBlocks = textContent.querySelectorAll("pre");
+    preBlocks.forEach((el) => {
+      el.style.overflow = "auto";
+      el.style.maxWidth = "100%";
+      el.style.whiteSpace = "pre-wrap";
+    });
+
+    // Обеспечить перенос слов для длинных строк
+    textContent.style.wordBreak = "break-word";
+    textContent.style.overflowWrap = "break-word";
+  }
+}
+
+// Initialize the media viewer
+function initMediaViewer() {
+  console.log("Initializing Media Viewer with media list:", mediaList);
+
+  // Логируем информацию о каждом медиа для отладки
+  if (mediaList && mediaList.length > 0) {
+    console.log(`Найдено ${mediaList.length} медиа-файлов`);
+    mediaList.forEach((item, idx) => {
+      console.log(`Медиа #${idx + 1}:`, item);
+    });
+
+    // Проверка доступа к серверу для подтверждения корректности подключения
+    fetch(`/media/${chatId}/${messageId}/check`)
+      .then((response) => {
+        console.log("Проверка подключения к серверу:", response.status);
+      })
+      .catch((error) => {
+        console.warn("Ошибка при проверке подключения:", error);
+      });
+  } else {
+    console.warn("Список медиа отсутствует или пуст");
+  }
+
+  // Load the first media
+  loadMedia(0);
+
+  // Set up navigation buttons
+  const prevButton = document.querySelector(".prev-media");
+  const nextButton = document.querySelector(".next-media");
+
+  if (prevButton) {
+    prevButton.addEventListener("click", () => {
+      navigateMedia(-1);
+    });
+  }
+
+  if (nextButton) {
+    nextButton.addEventListener("click", () => {
+      navigateMedia(1);
+    });
+  }
+
+  // Add keyboard navigation
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "ArrowLeft") {
+      navigateMedia(-1);
+    } else if (e.key === "ArrowRight") {
+      navigateMedia(1);
+    }
+  });
+}
+
+// Navigate through media
+function navigateMedia(step) {
+  console.log(
+    `Навигация с шагом: ${step}, текущий индекс: ${currentMediaIndex}, общее количество: ${mediaList.length}`
+  );
+
+  if (!mediaList || mediaList.length <= 1) return;
+
+  // Сохраняем настройки текущего медиа перед переключением
+  saveCurrentMediaSettings();
+
+  // Вычисляем новый индекс с учетом зацикливания
+  let newIndex = currentMediaIndex + step;
+
+  // Обеспечиваем циклическую навигацию
+  if (newIndex < 0) {
+    newIndex = mediaList.length - 1;
+  } else if (newIndex >= mediaList.length) {
+    newIndex = 0;
+  }
+
+  console.log(`Переключение на медиа с индексом: ${newIndex}`);
+
+  // Загружаем медиа с новым индексом
+  loadMedia(newIndex);
+}
+
+// Load media at the specified index
+function loadMedia(index) {
+  console.log("Loading media at index:", index, "Media list:", mediaList);
+  if (!mediaList || mediaList.length === 0) {
+    console.warn("No media available");
+    return;
+  }
+
+  // Ensure index is within bounds
+  index = Math.max(0, Math.min(mediaList.length - 1, index));
+  currentMediaIndex = index; // Устанавливаем текущий индекс
+
+  // Update counter display
+  const currentIndexElem = document.querySelector(".current-index");
+  const totalCountElem = document.querySelector(".total-count");
+
+  if (currentIndexElem) {
+    currentIndexElem.textContent = currentMediaIndex + 1;
+  }
+
+  if (totalCountElem) {
+    totalCountElem.textContent = mediaList.length;
+  }
+
+  // Get the current media container
+  const mediaContainer = document.querySelector(".current-media");
+  if (!mediaContainer) {
+    console.warn("Media container not found");
+    return;
+  }
+
+  // Clear previous media
+  mediaContainer.innerHTML = "";
+
+  // Create and set up a loader
+  const loaderElement = document.createElement("div");
+  loaderElement.className = "media-loader";
+  loaderElement.innerHTML = '<i class="fa-solid fa-spinner fa-spin fa-2x"></i>';
+  mediaContainer.appendChild(loaderElement);
+
+  // Get the media data
+  const mediaItem = mediaList[index];
+  console.log("Media item to load:", mediaItem);
+
+  // Проверка, что mediaItem существует и содержит необходимые данные
+  if (!mediaItem) {
+    console.error("Media item is undefined at index", index);
+    showMediaError(mediaContainer, loaderElement, "Отсутствуют данные о медиа");
+    return;
+  }
+
+  console.log(
+    `Данные медиа: type=${mediaItem.type || "неизвестно"}, id=${
+      mediaItem.id || "неизвестно"
+    }, chatId=${chatId}, messageId=${messageId}, index=${index}`
+  );
+
+  // Create the appropriate element based on media type
+  let mediaElement;
+
+  try {
+    // Детальное логирование для отладки
+    console.log("Детальная информация о медиа:", {
+      index: index,
+      type: mediaItem.type,
+      media_type: mediaItem.media_type,
+      mime_type: mediaItem.mime_type,
+      attributes: mediaItem.attributes,
+      filename: mediaItem.filename || mediaItem.name,
+      video: mediaItem.video,
+      video_info: mediaItem.video_info,
+      document: mediaItem.document,
+    });
+
+    // Расширенное логирование свойств объекта mediaItem для отладки
+    console.log(
+      "Все свойства mediaItem:",
+      Object.keys(mediaItem).reduce((acc, key) => {
+        acc[key] = mediaItem[key];
+        return acc;
+      }, {})
+    );
+
+    // Специфические проверки для видео в альбомах
+    const hasVideoField = Boolean(
+      mediaItem.video || mediaItem.videoInfo || mediaItem.video_info
+    );
+    const hasVideoMention = Boolean(
+      (mediaItem.type && mediaItem.type.toLowerCase().includes("video")) ||
+        (mediaItem.media_type &&
+          mediaItem.media_type.toLowerCase().includes("video"))
+    );
+    const hasDuration = Boolean(
+      mediaItem.duration ||
+        (mediaItem.video && mediaItem.video.duration) ||
+        (mediaItem.video_info && mediaItem.video_info.duration) ||
+        (mediaItem.videoInfo && mediaItem.videoInfo.duration)
+    );
+    const hasVideoAttributes = Boolean(
+      (mediaItem.attributes &&
+        mediaItem.attributes.toString().includes("video")) ||
+        hasVideoField ||
+        hasVideoMention ||
+        hasDuration
+    );
+
+    // Проверяем тип из mediaItem (проверяем все возможные поля, которые могут содержать информацию о типе)
+    const mediaType = (
+      mediaItem.media_type ||
+      mediaItem.type ||
+      ""
+    ).toLowerCase();
+
+    // Получаем информацию от возможных полей, содержащих информацию о видео
+    const videoInfo =
+      mediaItem.video_info || mediaItem.videoInfo || mediaItem.video || {};
+
+    // Проверим имя файла для определения типа, если он не определен другими способами
+    let filename = mediaItem.filename || mediaItem.name || "";
+    if (videoInfo && videoInfo.filename) {
+      filename = videoInfo.filename;
+    }
+
+    // Получаем расширение файла
+    const fileExt = filename.split(".").pop().toLowerCase();
+
+    // Проверяем расширения файлов для разных типов
+    const isImageExt = [
+      "jpg",
+      "jpeg",
+      "png",
+      "gif",
+      "webp",
+      "bmp",
+      "svg",
+    ].includes(fileExt);
+
+    const isVideoExt = [
+      "mp4",
+      "webm",
+      "ogg",
+      "mov",
+      "avi",
+      "wmv",
+      "flv",
+      "mkv",
+      "3gp",
+      "m4v",
+    ].includes(fileExt);
+
+    // Проверяем MIME-тип, если он доступен
+    let mimeType = (mediaItem.mime_type || "").toLowerCase();
+    if (videoInfo && videoInfo.mime_type) {
+      mimeType = videoInfo.mime_type.toLowerCase();
+    }
+
+    const isImageMime = mimeType.startsWith("image/");
+    const isVideoMime = mimeType.startsWith("video/");
+
+    // Определяем, является ли файл изображением или видео
+    // Для видео в альбомах делаем расширенную проверку
+    const isImage =
+      mediaType.includes("photo") ||
+      mediaType === "photo" ||
+      isImageExt ||
+      isImageMime;
+
+    const isVideo =
+      mediaType.includes("video") ||
+      mediaType === "video" ||
+      isVideoExt ||
+      isVideoMime ||
+      hasVideoAttributes ||
+      hasVideoField ||
+      hasVideoMention ||
+      hasDuration;
+
+    console.log(
+      `Определение типа медиа: ${filename}, тип: ${mediaType}, mime: ${mimeType}, ` +
+        `isImage: ${isImage}, isVideo: ${isVideo}, hasVideoAttributes: ${hasVideoAttributes}, ` +
+        `hasVideoField: ${hasVideoField}, hasVideoMention: ${hasVideoMention}, hasDuration: ${hasDuration}`
+    );
+
+    // При смешанных типах проверка на видео имеет приоритет
+    if (isVideo) {
+      // Обработка видео (даже если также совпадает с изображением)
+      mediaElement = document.createElement("video");
+      mediaElement.className = "media-element";
+      mediaElement.src = `/media/${chatId}/${messageId}/${index}?_nocache=${Date.now()}&type=video&album=1`;
+      mediaElement.controls = true;
+      mediaElement.preload = "auto";
+      mediaElement.playsInline = true;
+      mediaElement.autoplay = false;
+      console.log(
+        `Создан элемент видео с индексом ${index}: src=${mediaElement.src}`
+      );
+
+      // Явно установим обработчики событий для видео
+      mediaElement.onloadeddata = function () {
+        loaderElement.remove();
+        mediaElement.style.display = "block";
+        setupMediaDragging(mediaElement);
+        currentMedia = mediaElement;
+
+        // Применяем сохраненные настройки или используем дефолтные
+        applyMediaSettings(index);
+
+        console.log(`Видео с индексом ${index} загружено успешно`);
+      };
+
+      mediaElement.onerror = function (e) {
+        console.error(`Ошибка загрузки видео с индексом ${index}:`, e);
+        console.error(
+          "Детали ошибки:",
+          mediaElement.error
+            ? {
+                code: mediaElement.error.code,
+                message: mediaElement.error.message,
+              }
+            : "Нет дополнительной информации"
+        );
+
+        // Если видео не загрузилось, попробуем альтернативный метод
+        loaderElement.innerHTML =
+          '<i class="fa-solid fa-spinner fa-spin fa-2x"></i><div>Пробуем альтернативный метод загрузки...</div>';
+
+        console.log(
+          "Пробуем альтернативный метод загрузки для видео в альбоме"
+        );
+        setTimeout(() => {
+          // Сначала пробуем прямую загрузку видео через специальный URL для альбомов
+          tryAlternativeVideoLoader(index, mediaContainer, loaderElement);
+        }, 1000);
+      };
+    } else if (isImage) {
+      mediaElement = document.createElement("img");
+      mediaElement.className = "media-element";
+      // Добавляем случайный параметр к URL для предотвращения кэширования
+      mediaElement.src = `/media/${chatId}/${messageId}/${index}?_nocache=${Date.now()}&album=1`;
+      mediaElement.alt = "Фото";
+      console.log(
+        `Создан элемент фото с индексом ${index}: src=${mediaElement.src}`
+      );
+
+      // Явно установим обработчик событий load для изображений
+      mediaElement.onload = function () {
+        loaderElement.remove();
+        mediaElement.style.display = "block";
+        setupMediaDragging(mediaElement);
+        currentMedia = mediaElement;
+
+        // Применяем сохраненные настройки или используем дефолтные
+        applyMediaSettings(index);
+
+        console.log(`Изображение с индексом ${index} загружено успешно`);
+      };
+
+      mediaElement.onerror = function (e) {
+        console.error(`Ошибка загрузки изображения с индексом ${index}:`, e);
+        showMediaError(
+          mediaContainer,
+          loaderElement,
+          "Ошибка загрузки изображения"
+        );
+      };
+    } else if (
+      mediaType.includes("document") ||
+      mediaType === "document" ||
+      mediaType.includes("file") ||
+      mediaType === "file"
+    ) {
+      // При обработке документов тоже отдаем приоритет видео
+      if (
+        isVideoExt ||
+        isVideoMime ||
+        hasVideoAttributes ||
+        hasVideoField ||
+        hasVideoMention ||
+        hasDuration
+      ) {
+        // Для документов с видео
+        mediaElement = document.createElement("video");
+        mediaElement.className = "media-element";
+        mediaElement.src = `/media/${chatId}/${messageId}/${index}?_nocache=${Date.now()}&type=video&doc=1`;
+        mediaElement.controls = true;
+        mediaElement.preload = "auto";
+        mediaElement.playsInline = true;
+        mediaElement.autoplay = false;
+        console.log(
+          `Документ является видео: ${filename}, отображаем как видео с индексом ${index}`
+        );
+
+        mediaElement.onloadeddata = function () {
+          loaderElement.remove();
+          mediaElement.style.display = "block";
+          setupMediaDragging(mediaElement);
+          currentMedia = mediaElement;
+
+          // Применяем сохраненные настройки или используем дефолтные
+          applyMediaSettings(index);
+
+          console.log(`Видео (документ) с индексом ${index} загружено успешно`);
+        };
+
+        mediaElement.onerror = function (e) {
+          console.error(
+            `Ошибка загрузки видео (документ) с индексом ${index}:`,
+            e
+          );
+          // Пробуем альтернативный способ загрузки
+          tryAlternativeVideoLoader(index, mediaContainer, loaderElement);
+        };
+      } else if (isImageExt || isImageMime) {
+        // Для документов с изображениями
+        mediaElement = document.createElement("img");
+        mediaElement.className = "media-element";
+        mediaElement.src = `/media/${chatId}/${messageId}/${index}?_nocache=${Date.now()}`;
+        mediaElement.alt = "Фото";
+        console.log(
+          `Документ является изображением: ${filename}, отображаем как фото с индексом ${index}`
+        );
+
+        mediaElement.onload = function () {
+          loaderElement.remove();
+          mediaElement.style.display = "block";
+          setupMediaDragging(mediaElement);
+          currentMedia = mediaElement;
+
+          // Применяем сохраненные настройки или используем дефолтные
+          applyMediaSettings(index);
+
+          console.log(
+            `Изображение (документ) с индексом ${index} загружено успешно`
+          );
+        };
+
+        mediaElement.onerror = function (e) {
+          console.error(
+            `Ошибка загрузки изображения (документ) с индексом ${index}:`,
+            e
+          );
+          showMediaError(
+            mediaContainer,
+            loaderElement,
+            "Ошибка загрузки изображения"
+          );
+        };
+      } else {
+        // Для обычных документов
+        mediaElement = document.createElement("div");
+        mediaElement.className = "document-preview";
+        mediaElement.innerHTML = `
+          <i class="fa-solid fa-file-lines fa-3x"></i>
+          <div class="document-name">${
+            mediaItem.filename || mediaItem.name || "Документ"
+          }</div>
+          <a href="/media/${chatId}/${messageId}/${index}?_nocache=${Date.now()}" 
+             class="document-download" download="${
+               mediaItem.filename || mediaItem.name || "document"
+             }">
+             <i class="fa-solid fa-download"></i> Скачать
+          </a>
+        `;
+        console.log(
+          `Создан элемент документа для: ${filename} с индексом ${index}`
+        );
+
+        // Для документов сразу удаляем лоадер
+        loaderElement.remove();
+      }
+    } else {
+      // Если тип не определен, пробуем загрузить через URL и решить на основе MIME-типа
+      console.log(
+        `Неопределенный тип медиа для индекса ${index}, пробуем прямой URL`
+      );
+      tryDirectMediaUrl(index, mediaContainer, loaderElement);
+      return;
+    }
+
+    // Append the element to the container
+    mediaContainer.appendChild(mediaElement);
+
+    // Для документов не нужны дополнительные проверки, события load/error уже обрабатываются выше
+    if (mediaElement.tagName !== "IMG" && mediaElement.tagName !== "VIDEO") {
+      // Лоадер уже удален в коде выше
+    }
+  } catch (error) {
+    console.error(`Ошибка при загрузке медиа с индексом ${index}:`, error);
+    showMediaError(
+      mediaContainer,
+      loaderElement,
+      "Ошибка при загрузке медиафайла"
+    );
+  }
+}
+
+// Новая функция для попытки альтернативной загрузки видео
+function tryAlternativeVideoLoader(index, container, loader) {
+  console.log(`Альтернативная загрузка видео для индекса ${index}`);
+
+  // Создаем запрос на специальный URL для видео в альбомах
+  fetch(`/direct_media/${chatId}/${messageId}/${index}?type=video&album=1`)
+    .then((response) => {
+      if (!response.ok) {
+        throw new Error(`HTTP ошибка! статус: ${response.status}`);
+      }
+      return response.json();
+    })
+    .then((data) => {
+      if (data.url) {
+        console.log(`Получен прямой URL для видео: ${data.url}`);
+
+        // Создаем видеоэлемент
+        const videoElement = document.createElement("video");
+        videoElement.className = "media-element";
+        videoElement.src = data.url;
+        videoElement.controls = true;
+        videoElement.preload = "auto";
+        videoElement.playsInline = true;
+
+        // Обработчики событий
+        videoElement.onloadeddata = function () {
+          console.log(`Альтернативное видео загружено успешно: ${data.url}`);
+          if (loader) loader.remove();
+          videoElement.style.display = "block";
+          setupMediaDragging(videoElement);
+          currentMedia = videoElement;
+
+          // Применяем настройки
+          zoomLevel = 1;
+          updateZoomValue();
+          applyZoom();
+        };
+
+        videoElement.onerror = function (e) {
+          console.error(`Ошибка при альтернативной загрузке видео:`, e);
+          // Если и этот метод не помог, пробуем стандартный метод
+          console.log("Пробуем стандартный метод загрузки через прямой URL");
+          tryDirectMediaUrl(index, container, loader);
+        };
+
+        // Очищаем контейнер и добавляем видео
+        container.innerHTML = "";
+        container.appendChild(videoElement);
+      } else {
+        throw new Error("URL отсутствует в ответе при альтернативной загрузке");
+      }
+    })
+    .catch((error) => {
+      console.error("Ошибка при альтернативной загрузке видео:", error);
+      // Пробуем стандартный метод загрузки через прямой URL
+      tryDirectMediaUrl(index, container, loader);
+    });
+}
+
+// Попытка загрузить медиа по прямому URL
+function tryDirectMediaUrl(index, container, loader) {
+  console.log("Пробуем загрузить медиа напрямую по URL");
+
+  // Создаем запрос на сервер для получения прямого URL
+  fetch(`/direct_media/${chatId}/${messageId}/${index}?type=video&album=1`)
+    .then((response) => {
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      return response.json();
+    })
+    .then((data) => {
+      console.log("Получен ответ с прямым URL:", data);
+
+      if (data.url) {
+        // Определяем тип медиа на основе URL или mime_type
+        let element;
+        const fileExt = data.url.split(".").pop().toLowerCase();
+
+        // Получаем информацию о возможных видео-полях
+        const videoInfo = data.video_info || data.videoInfo || data.video || {};
+
+        // Специфические проверки для видео в альбомах
+        const hasVideoField = Boolean(
+          data.video || data.videoInfo || data.video_info
+        );
+        const hasVideoMention = Boolean(
+          (data.type && data.type.toLowerCase().includes("video")) ||
+            (data.media_type && data.media_type.toLowerCase().includes("video"))
+        );
+        const hasDuration = Boolean(
+          data.duration ||
+            (data.video && data.video.duration) ||
+            (data.video_info && data.video_info.duration) ||
+            (data.videoInfo && data.videoInfo.duration)
+        );
+        const hasVideoAttributes = Boolean(
+          (data.attributes && data.attributes.toString().includes("video")) ||
+            hasVideoField ||
+            hasVideoMention ||
+            hasDuration
+        );
+
+        // Расширенная проверка для изображений
+        const isImage =
+          ["jpg", "jpeg", "png", "gif", "webp", "bmp", "svg"].includes(
+            fileExt
+          ) ||
+          (data.mime_type && data.mime_type.startsWith("image/"));
+
+        // Расширенная проверка для видео
+        const isVideo =
+          [
+            "mp4",
+            "webm",
+            "ogg",
+            "mov",
+            "avi",
+            "wmv",
+            "flv",
+            "mkv",
+            "3gp",
+            "m4v",
+          ].includes(fileExt) ||
+          (data.mime_type && data.mime_type.startsWith("video/")) ||
+          hasVideoAttributes;
+
+        console.log(
+          `tryDirectMediaUrl: определение типа - isImage: ${isImage}, isVideo: ${isVideo}, fileExt: ${fileExt}, mime: ${data.mime_type}, ` +
+            `hasVideoField: ${hasVideoField}, hasVideoMention: ${hasVideoMention}, hasDuration: ${hasDuration}`
+        );
+
+        if (isVideo) {
+          // Приоритетно обрабатываем видео
+          element = document.createElement("video");
+          element.className = "media-element";
+          element.src = data.url;
+          element.controls = true;
+          element.preload = "auto";
+          element.playsInline = true;
+          element.autoplay = false;
+
+          // Добавляем обработчики событий для видео
+          element.onloadeddata = function () {
+            console.log(`Видео успешно загружено по прямому URL: ${data.url}`);
+            if (loader) loader.remove();
+            element.style.display = "block";
+            setupMediaDragging(element);
+            currentMedia = element;
+
+            // Применяем настройки
+            zoomLevel = 1;
+            updateZoomValue();
+            applyZoom();
+          };
+
+          element.onerror = function (e) {
+            console.error(
+              `Ошибка загрузки видео по прямому URL: ${data.url}`,
+              e
+            );
+
+            // Последняя попытка - попробовать загрузить как картинку,
+            // если определение типа могло быть неправильным
+            if (isImage || !isVideo) {
+              console.log("Последняя попытка - загрузка как изображение");
+              const imgElement = document.createElement("img");
+              imgElement.className = "media-element";
+              imgElement.src = data.url.replace("type=video", "");
+              imgElement.alt = "Изображение";
+
+              imgElement.onload = function () {
+                console.log("Успешно загружено как изображение");
+                if (loader) loader.remove();
+                imgElement.style.display = "block";
+                setupMediaDragging(imgElement);
+                currentMedia = imgElement;
+
+                // Сбрасываем масштаб
+                zoomLevel = 1;
+                updateZoomValue();
+                applyZoom();
+              };
+
+              imgElement.onerror = function () {
+                showMediaError(container, loader, "Не удалось загрузить медиа");
+              };
+
+              // Очистим контейнер и добавим элемент
+              container.innerHTML = "";
+              container.appendChild(imgElement);
+            } else {
+              showMediaError(container, loader, "Ошибка загрузки видео");
+            }
+          };
+        } else if (isImage) {
+          element = document.createElement("img");
+          element.className = "media-element";
+          element.src = data.url;
+          element.alt = "Изображение";
+
+          // Добавляем обработчики событий для изображений
+          element.onload = function () {
+            console.log(
+              `Изображение успешно загружено по прямому URL: ${data.url}`
+            );
+            if (loader) loader.remove();
+            element.style.display = "block";
+            setupMediaDragging(element);
+            currentMedia = element;
+
+            // Сбрасываем масштаб
+            zoomLevel = 1;
+            updateZoomValue();
+            applyZoom();
+          };
+
+          element.onerror = function (e) {
+            console.error(
+              `Ошибка загрузки изображения по прямому URL: ${data.url}`,
+              e
+            );
+            showMediaError(container, loader, "Ошибка загрузки изображения");
+          };
+        } else {
+          // Документ или другой тип
+          element = document.createElement("div");
+          element.className = "document-preview";
+          element.innerHTML = `
+              <i class="fa-solid fa-file-lines fa-3x"></i>
+              <div class="document-name">${data.filename || "Документ"}</div>
+              <a href="${data.url}" 
+                 class="document-download" download="${
+                   data.filename || "document"
+                 }">
+                 <i class="fa-solid fa-download"></i> Скачать
+              </a>
+          `;
+
+          // Удаляем лоадер для документов сразу
+          if (loader) {
+            loader.remove();
+          }
+        }
+
+        // Очищаем контейнер и добавляем новый элемент
+        container.innerHTML = "";
+        container.appendChild(element);
+
+        // Для изображений и видео настраиваем интерактивность
+        if (element.tagName === "IMG" || element.tagName === "VIDEO") {
+          setupMediaDragging(element);
+          currentMedia = element;
+
+          // Сбрасываем зум
+          zoomLevel = 1;
+          updateZoomValue();
+          applyZoom();
+        }
+      } else {
+        throw new Error("URL отсутствует в ответе");
+      }
+    })
+    .catch((error) => {
+      console.error("Ошибка при получении прямого URL:", error);
+      showMediaError(container, loader, "Не удалось загрузить медиа");
+
+      // Показываем заглушку с информацией о медиа
+      const mediaItem = mediaList[index];
+      const mediaInfo = [];
+      if (mediaItem.id) mediaInfo.push(`ID: ${mediaItem.id}`);
+      if (mediaItem.type) mediaInfo.push(`Тип: ${mediaItem.type}`);
+      if (mediaItem.mime_type) mediaInfo.push(`MIME: ${mediaItem.mime_type}`);
+      if (mediaItem.video || mediaItem.video_info || mediaItem.videoInfo) {
+        mediaInfo.push(`Содержит видеоданные`);
+      }
+
+      const placeholderElement = document.createElement("div");
+      placeholderElement.className = "media-placeholder";
+      placeholderElement.innerHTML = `
+              <i class="fa-solid fa-question-circle fa-3x"></i>
+              <div>Неподдерживаемый тип медиа</div>
+              <div class="media-details">${
+                mediaInfo.join(", ") || "Нет дополнительной информации"
+              }</div>
+              <button class="retry-media-btn">Повторить загрузку</button>
+          `;
+
+      // Удаляем лоадер
+      if (loader) {
+        loader.remove();
+      }
+
+      // Очищаем контейнер и добавляем заглушку
+      container.innerHTML = "";
+      container.appendChild(placeholderElement);
+
+      // Добавляем обработчик для кнопки повтора
+      const retryBtn = placeholderElement.querySelector(".retry-media-btn");
+      if (retryBtn) {
+        retryBtn.addEventListener("click", () => loadMedia(index));
+      }
+    });
+}
+
+// Вспомогательная функция для отображения ошибки медиа
+function showMediaError(container, loader, message) {
+  if (loader) loader.remove();
+
+  const errorElement = document.createElement("div");
+  errorElement.className = "media-error";
+  errorElement.innerHTML = `
+          <i class="fa-solid fa-triangle-exclamation"></i>
+          <p>${message}</p>
+          <button class="retry-media-btn">Повторить загрузку</button>
+      `;
+  container.appendChild(errorElement);
+
+  // Добавляем обработчик для кнопки повтора
+  setTimeout(() => {
+    const retryBtn = errorElement.querySelector(".retry-media-btn");
+    if (retryBtn) {
+      retryBtn.addEventListener("click", () => loadMedia(currentMediaIndex));
+    }
+  }, 0);
+}
+
+// Set up media dragging
+function setupMediaDragging(mediaElement) {
+  if (!mediaElement) return;
+
+  let isDragging = false;
+  let startX = 0;
+  let startY = 0;
+  let lastOffsetX = 0;
+  let lastOffsetY = 0;
+
+  // For mouse events
+  mediaElement.addEventListener("mousedown", (e) => {
+    if (e.button === 0) {
+      // Left mouse button
+      e.preventDefault();
+      startDrag(e.clientX, e.clientY);
+    }
+  });
+
+  document.addEventListener("mousemove", (e) => {
+    if (isDragging) {
+      e.preventDefault();
+      doDrag(e.clientX, e.clientY);
+    }
+  });
+
+  document.addEventListener("mouseup", () => {
+    if (isDragging) {
+      endDrag();
+    }
+  });
+
+  // For touch events
+  mediaElement.addEventListener("touchstart", (e) => {
+    if (e.touches.length === 1) {
+      e.preventDefault();
+      const touch = e.touches[0];
+      startDrag(touch.clientX, touch.clientY);
+    }
+  });
+
+  document.addEventListener("touchmove", (e) => {
+    if (isDragging && e.touches.length === 1) {
+      e.preventDefault();
+      const touch = e.touches[0];
+      doDrag(touch.clientX, touch.clientY);
+    }
+  });
+
+  document.addEventListener("touchend", () => {
+    if (isDragging) {
+      endDrag();
+    }
+  });
+
+  // Добавляем обработчик колесика мыши для масштабирования
+  mediaElement.addEventListener("wheel", (e) => {
+    e.preventDefault(); // Предотвращаем стандартное поведение
+
+    // Определяем направление прокрутки
+    const delta = e.deltaY || e.detail || e.wheelDelta;
+
+    // Шаг изменения масштаба
+    const stepSize = 0.05;
+
+    if (delta < 0) {
+      // Прокрутка вверх - увеличиваем масштаб
+      zoomLevel = Math.min(5, zoomLevel + stepSize);
+    } else {
+      // Прокрутка вниз - уменьшаем масштаб
+      zoomLevel = Math.max(0.5, zoomLevel - stepSize);
+    }
+
+    // Округляем до 2 знаков после запятой для стабильности
+    zoomLevel = Math.round(zoomLevel * 100) / 100;
+
+    // Обновляем отображение и применяем масштаб
+    updateZoomValue();
+    applyZoom();
+
+    // Показываем всплывающее сообщение
+    showZoomToast(Math.round(zoomLevel * 100));
+  });
+
+  // Добавляем обработчик двойного клика для сброса масштаба и позиции
+  mediaElement.addEventListener("dblclick", (e) => {
+    e.preventDefault();
+    resetMediaView();
+  });
+
+  // Start dragging
+  function startDrag(x, y) {
+    isDragging = true;
+    startX = x;
+    startY = y;
+    const transform = getComputedStyle(mediaElement).transform;
+    const matrix = new DOMMatrix(transform);
+    lastOffsetX = matrix.e;
+    lastOffsetY = matrix.f;
+    mediaElement.style.cursor = "grabbing";
+    const mediaContainer = mediaElement.closest(".current-media");
+    if (mediaContainer) {
+      mediaContainer.classList.add("dragging");
+    }
+  }
+
+  // Perform dragging
+  function doDrag(x, y) {
+    if (!isDragging) return;
+    const dx = x - startX;
+    const dy = y - startY;
+    mediaElement.style.transform = `translate(${lastOffsetX + dx}px, ${
+      lastOffsetY + dy
+    }px) scale(${zoomLevel})`;
+
+    // Обновляем настройки положения текущего медиа в реальном времени
+    if (
+      typeof currentMediaIndex !== "undefined" &&
+      mediaSettings[currentMediaIndex]
+    ) {
+      mediaSettings[currentMediaIndex].positionX = lastOffsetX + dx;
+      mediaSettings[currentMediaIndex].positionY = lastOffsetY + dy;
+    }
+  }
+
+  // End dragging
+  function endDrag() {
+    isDragging = false;
+    mediaElement.style.cursor = "grab";
+    const mediaContainer = mediaElement.closest(".current-media");
+    if (mediaContainer) {
+      mediaContainer.classList.remove("dragging");
+    }
+
+    // Сохраняем финальное положение медиа в настройках
+    if (
+      typeof currentMediaIndex !== "undefined" &&
+      mediaSettings[currentMediaIndex]
+    ) {
+      const transform = getComputedStyle(mediaElement).transform;
+      const matrix = new DOMMatrix(transform);
+      mediaSettings[currentMediaIndex].positionX = matrix.e;
+      mediaSettings[currentMediaIndex].positionY = matrix.f;
+
+      console.log(
+        `Сохранена позиция для медиа #${currentMediaIndex} после перетаскивания:`,
+        {
+          x: matrix.e,
+          y: matrix.f,
+        }
+      );
+    }
+  }
+}
+
+// Initialize layout controls
+function initLayoutControls() {
+  const layoutButtons = document.querySelectorAll(".btn-layout");
+  const postContainer = document.querySelector(".post-container");
+
+  layoutButtons.forEach((button) => {
+    button.addEventListener("click", (e) => {
+      const layout = e.currentTarget.getAttribute("data-layout");
+      if (!layout) return;
+
+      // Удаляем активный класс со всех кнопок
+      layoutButtons.forEach((btn) => btn.classList.remove("active"));
+      // Добавляем активный класс на нажатую кнопку
+      e.currentTarget.classList.add("active");
+
+      // Сначала удаляем все классы макета
+      postContainer.classList.remove(
+        "layout-left",
+        "layout-right",
+        "layout-top"
+      );
+      // Затем добавляем нужный класс
+      postContainer.classList.add(`layout-${layout}`);
+
+      // Вызываем функцию обработки соотношения сторон и высоты
+      applyLayoutAdjustments(layout);
+
+      // Сохраняем выбранный макет в localStorage
+      localStorage.setItem("preferred-layout", layout);
+    });
+  });
+
+  // Применяем сохраненный макет при загрузке страницы
+  const savedLayout = localStorage.getItem("preferred-layout");
+  if (savedLayout) {
+    const button = document.querySelector(
+      `.btn-layout[data-layout="${savedLayout}"]`
+    );
+    if (button) {
+      button.click();
+    }
+  }
+}
+
+function applyLayoutAdjustments(layout) {
+  const postContainer = document.querySelector(".post-container");
+  const textBlock = document.querySelector(".text-block");
+  const mediaBlock = document.querySelector(".media-block");
+  const splitter = document.querySelector(".splitter");
+
+  // Полный сброс стилей при переключении макета
+  postContainer.style.gridTemplateColumns = "";
+  postContainer.style.gridTemplateRows = "";
+  postContainer.style.height = "";
+  postContainer.style.maxHeight = "";
+  textBlock.style.height = "";
+  textBlock.style.maxHeight = "";
+  mediaBlock.style.height = "";
+
+  // Возвращаем встроенные размеры элементов к значениям по умолчанию
+  if (layout === "top") {
+    // Для вертикального макета устанавливаем размер медиа блока в соотношении 16:9 к ширине
+    if (window.innerWidth > 768) {
+      // Получаем текущую ширину контейнера
+      const containerWidth = postContainer.getBoundingClientRect().width;
+
+      // Рассчитываем высоту для соотношения 16:9 (ширина / (16/9))
+      const aspectHeight = Math.round(containerWidth * (9 / 16));
+
+      // Ограничиваем максимальную высоту медиа, чтобы избежать слишком больших значений
+      const mediaSize = Math.min(aspectHeight, 500); // Ограничиваем 500px или меньше
+
+      // Рассчитываем размер текстового блока
+      const textSize = Math.max(200, window.innerHeight - mediaSize - 40); // Оставляем место для разделителя и отступов
+
+      // Получаем высоту разделителя
+      const splitterSize = 8; // var(--splitter-width) обычно 8px
+
+      console.log("Размеры для вертикального макета:", {
+        containerWidth: containerWidth,
+        mediaSize: mediaSize,
+        textSize: textSize,
+      });
+
+      // Устанавливаем размеры в пикселях для корректной работы разделителя
+      postContainer.style.gridTemplateRows = `${mediaSize}px ${splitterSize}px ${textSize}px`;
+
+      // Для более надежной работы устанавливаем также высоты напрямую
+      mediaBlock.style.height = `${mediaSize}px`;
+      textBlock.style.height = `${textSize}px`;
+    }
+
+    // Восстанавливаем динамическую высоту текстового блока после установки начальных размеров
+    adjustTextBlockHeight();
+
+    // Добавляем обработчик изменения размера окна и мутаций контента
+    window.addEventListener("resize", adjustTextBlockHeight);
+
+    // Наблюдатель за изменениями в тексте
+    const textContent = document.querySelector(".post-text-content");
+    if (textContent) {
+      const observer = new MutationObserver(adjustTextBlockHeight);
+      observer.observe(textContent, {
+        childList: true,
+        subtree: true,
+        characterData: true,
+      });
+    }
+  } else {
+    // Для горизонтальных макетов (left/right) устанавливаем пропорциональные колонки
+    if (layout === "left" && window.innerWidth > 768) {
+      postContainer.style.gridTemplateColumns =
+        "minmax(200px, 1fr) var(--splitter-width) minmax(300px, 2fr)";
+    } else if (layout === "right" && window.innerWidth > 768) {
+      postContainer.style.gridTemplateColumns =
+        "minmax(300px, 2fr) var(--splitter-width) minmax(200px, 1fr)";
+    }
+
+    // Отключаем наблюдатель для изменения высоты текстового блока
+    window.removeEventListener("resize", adjustTextBlockHeight);
+  }
+
+  // Форсируем перерасчет размеров после небольшой задержки
+  setTimeout(() => {
+    adjustTextContent();
+    if (layout === "top") {
+      adjustTextBlockHeight();
+    }
+
+    // Сбрасываем флаги перетаскивания для безопасности
+    isResizing = false;
+  }, 50);
+}
+
+function adjustTextBlockHeight() {
+  const textBlock = document.querySelector(".text-block");
+  const postContainer = document.querySelector(".post-container");
+
+  if (
+    !textBlock ||
+    !postContainer ||
+    !postContainer.classList.contains("layout-top")
+  ) {
+    return;
+  }
+
+  const textContent = textBlock.querySelector(".post-text-content");
+  if (!textContent) return;
+
+  // Проверяем высоту контента и устанавливаем соответствующую высоту для блока
+  const contentHeight = textContent.scrollHeight;
+
+  // Добавляем отступ для лучшего визуального восприятия (30px снизу)
+  textBlock.style.height = contentHeight + 30 + "px";
+
+  console.log("Adjusted text block height to content: " + contentHeight + "px");
+}
+
+// Initialize font size controls
+function initFontSizeControls() {
+  const textContainer = document.querySelector(".post-text-content");
+  const textBlock = document.querySelector(".text-block");
+  const fontSizeDisplay = document.querySelector(".font-size-display");
+
+  if (!textContainer || !fontSizeDisplay) return;
+
+  const fontSizeButtons = document.querySelectorAll(".btn-font-size");
+
+  fontSizeButtons.forEach((button) => {
+    button.addEventListener("click", () => {
+      const action = button.getAttribute("data-action");
+
+      if (action === "increase") {
+        fontSizePercent += 10;
+      } else if (action === "decrease") {
+        fontSizePercent = Math.max(50, fontSizePercent - 10);
+      } else if (action === "reset") {
+        fontSizePercent = 100;
+      }
+
+      // Update the text and display
+      textContainer.style.fontSize = `${fontSizePercent}%`;
+      fontSizeDisplay.textContent = `${fontSizePercent}%`;
+
+      // После изменения размера шрифта пересчитаем вписываемость текста
+      adjustTextContent();
+    });
+  });
+
+  // Добавляем обработчик события колеса мыши для изменения размера текста
+  if (textBlock) {
+    textBlock.addEventListener("wheel", (e) => {
+      // Изменяем размер только если нажата клавиша Ctrl
+      if (e.ctrlKey) {
+        // Предотвращаем стандартное поведение (масштабирование страницы)
+        e.preventDefault();
+
+        // Определяем направление прокрутки
+        const delta = e.deltaY || e.detail || e.wheelDelta;
+
+        if (delta < 0) {
+          // Прокрутка вверх - увеличиваем размер текста
+          fontSizePercent = Math.min(200, fontSizePercent + 5);
+        } else {
+          // Прокрутка вниз - уменьшаем размер текста
+          fontSizePercent = Math.max(50, fontSizePercent - 5);
+        }
+
+        // Обновляем размер шрифта и отображаем новое значение
+        textContainer.style.fontSize = `${fontSizePercent}%`;
+        fontSizeDisplay.textContent = `${fontSizePercent}%`;
+
+        // Обновляем внешний вид текстового блока
+        adjustTextContent();
+
+        // Показываем всплывающее сообщение с текущим размером
+        showFontSizeToast(fontSizePercent);
+      }
+    });
+  }
+}
+
+// Показать всплывающее уведомление о размере шрифта
+function showFontSizeToast(size) {
+  // Проверяем, существует ли уже уведомление
+  let fontToast = document.querySelector(".font-size-toast");
+
+  if (!fontToast) {
+    // Создаем новое уведомление
+    fontToast = document.createElement("div");
+    fontToast.className = "font-size-toast";
+    document.body.appendChild(fontToast);
+  }
+
+  // Обновляем содержимое и показываем
+  fontToast.textContent = `Размер текста: ${size}%`;
+  fontToast.classList.add("visible");
+
+  // Скрываем через короткий промежуток времени
+  clearTimeout(fontToast.timeout);
+  fontToast.timeout = setTimeout(() => {
+    fontToast.classList.remove("visible");
+  }, 1000);
+}
+
+// Initialize zoom controls
+function initZoomControls() {
+  const zoomButtons = document.querySelectorAll(".btn-zoom");
+  const mediaBlock = document.querySelector(".media-block");
+
+  zoomButtons.forEach((button) => {
+    button.addEventListener("click", () => {
+      const action = button.getAttribute("data-action");
+
+      if (action === "in") {
+        zoomLevel = Math.min(5, zoomLevel + 0.1);
+        updateZoomValue();
+        applyZoom();
+        showZoomToast(Math.round(zoomLevel * 100));
+      } else if (action === "out") {
+        zoomLevel = Math.max(0.5, zoomLevel - 0.1);
+        updateZoomValue();
+        applyZoom();
+        showZoomToast(Math.round(zoomLevel * 100));
+      } else if (action === "reset") {
+        // Вместо простой установки масштаба, вызываем функцию полного сброса
+        resetMediaView();
+      } else if (action === "copy-zoom") {
+        // Копируем текущий масштаб на все медиа объекты
+        copyZoomToAllMedia();
+      }
+    });
+  });
+
+  // Добавляем обработчик для всего блока медиа, если нет активного медиа-элемента
+  // Это нужно, когда на странице есть медиа-блок, но медиа еще не загружено
+  if (mediaBlock) {
+    mediaBlock.addEventListener("wheel", (e) => {
+      // Проверяем, что мы не взаимодействуем с медиа-элементом
+      // (для медиа-элементов обработчик уже добавлен в setupMediaDragging)
+      if (
+        !e.target.classList ||
+        !e.target.classList.contains("media-element")
+      ) {
+        e.preventDefault();
+
+        // Определяем направление прокрутки
+        const delta = e.deltaY || e.detail || e.wheelDelta;
+
+        // Шаг изменения масштаба немного меньше, чем в кнопках
+        const stepSize = 0.05;
+
+        if (delta < 0) {
+          // Прокрутка вверх - увеличиваем масштаб
+          zoomLevel = Math.min(5, zoomLevel + stepSize);
+        } else {
+          // Прокрутка вниз - уменьшаем масштаб
+          zoomLevel = Math.max(0.5, zoomLevel - stepSize);
+        }
+
+        // Округляем до 2 знаков после запятой
+        zoomLevel = Math.round(zoomLevel * 100) / 100;
+
+        // Обновляем отображение и применяем масштаб
+        updateZoomValue();
+        applyZoom();
+
+        // Показываем всплывающее сообщение
+        showZoomToast(Math.round(zoomLevel * 100));
+      }
+    });
+  }
+}
+
+// Apply zoom to the current media
+function applyZoom() {
+  if (
+    currentMedia &&
+    (currentMedia.tagName === "IMG" || currentMedia.tagName === "VIDEO")
+  ) {
+    const transform = getComputedStyle(currentMedia).transform;
+    const matrix = new DOMMatrix(transform);
+
+    // Preserve translation from dragging
+    const tx = matrix.e;
+    const ty = matrix.f;
+
+    currentMedia.style.transform = `translate(${tx}px, ${ty}px) scale(${zoomLevel})`;
+
+    // Обновляем настройки текущего медиа
+    if (
+      typeof currentMediaIndex !== "undefined" &&
+      mediaSettings[currentMediaIndex]
+    ) {
+      mediaSettings[currentMediaIndex].zoom = zoomLevel;
+      mediaSettings[currentMediaIndex].positionX = tx;
+      mediaSettings[currentMediaIndex].positionY = ty;
+    }
+  }
+}
+
+// Функция для сброса позиции и масштаба медиа
+function resetMediaView() {
+  if (
+    currentMedia &&
+    (currentMedia.tagName === "IMG" || currentMedia.tagName === "VIDEO")
+  ) {
+    // Сбрасываем масштаб и положение
+    zoomLevel = 1;
+
+    // Сбрасываем трансформацию
+    currentMedia.style.transform = "translate(0px, 0px) scale(1)";
+
+    // Обновляем отображение значения масштаба
+    updateZoomValue();
+
+    // Сбрасываем сохраненные настройки
+    if (
+      typeof currentMediaIndex !== "undefined" &&
+      mediaSettings[currentMediaIndex]
+    ) {
+      mediaSettings[currentMediaIndex] = {
+        zoom: 1,
+        positionX: 0,
+        positionY: 0,
+      };
+    }
+
+    // Показываем всплывающее сообщение
+    showZoomToast(100, true);
+  }
+}
+
+// Обновленная функция для показа всплывающего уведомления
+function showZoomToast(size, isReset = false) {
+  // Проверяем, существует ли уже уведомление
+  let zoomToast = document.querySelector(".zoom-size-toast");
+
+  if (!zoomToast) {
+    // Создаем новое уведомление
+    zoomToast = document.createElement("div");
+    zoomToast.className = "font-size-toast zoom-size-toast";
+    document.body.appendChild(zoomToast);
+  }
+
+  // Обновляем содержимое и показываем
+  if (isReset) {
+    zoomToast.innerHTML = `<i class="fa-solid fa-arrows-to-dot"></i> Вид сброшен`;
+  } else {
+    zoomToast.innerHTML = `<i class="fa-solid fa-magnifying-glass"></i> Масштаб: ${size}%`;
+  }
+
+  zoomToast.classList.add("visible");
+
+  // Скрываем через короткий промежуток времени
+  clearTimeout(zoomToast.timeout);
+  zoomToast.timeout = setTimeout(() => {
+    zoomToast.classList.remove("visible");
+  }, 1000);
+}
+
+// Update zoom value display
+function updateZoomValue() {
+  const zoomValueElement = document.querySelector(".zoom-value");
+  if (zoomValueElement) {
+    zoomValueElement.textContent = `${Math.round(zoomLevel * 100)}%`;
+  }
+}
+
+// Show a toast notification
+function showToast(message, type = "success") {
+  // Проверяем, существует ли контейнер для тостов
+  let toastContainer = document.querySelector(".toast-container");
+
+  // Если контейнера нет, создаем его
+  if (!toastContainer) {
+    toastContainer = document.createElement("div");
+    toastContainer.className = "toast-container";
+    document.body.appendChild(toastContainer);
+  }
+
+  // Создаем новый тост
+  const toast = document.createElement("div");
+  toast.className = `toast toast-${type}`;
+
+  // Добавляем иконку в зависимости от типа
+  let icon = "";
+  switch (type) {
+    case "success":
+      icon = '<i class="fa-solid fa-check-circle"></i>';
+      break;
+    case "error":
+      icon = '<i class="fa-solid fa-times-circle"></i>';
+      break;
+    case "info":
+      icon = '<i class="fa-solid fa-info-circle"></i>';
+      break;
+    default:
+      icon = '<i class="fa-solid fa-bell"></i>';
+  }
+
+  // Заполняем содержимое тоста
+  toast.innerHTML = `${icon} <span>${message}</span>`;
+
+  // Добавляем тост в контейнер
+  toastContainer.appendChild(toast);
+
+  // Удаляем тост через 3 секунды
+  setTimeout(() => {
+    toast.classList.add("fade-out");
+    setTimeout(() => {
+      toast.remove();
+      // Если все тосты удалены, удаляем контейнер
+      if (toastContainer.children.length === 0) {
+        toastContainer.remove();
+      }
+    }, 300);
+  }, 3000);
+}
+
+// Функция инициализации меню выделения текста
+function initSelectionMenu() {
+  const selectionMenu = document.querySelector(".selection-menu");
+  let activeHighlight = null; // Для хранения ссылки на активный выделенный элемент
+
+  if (!selectionMenu) return;
+
+  // Функция для отображения меню выделения при выделении текста
+  document.addEventListener("mouseup", (e) => {
+    const selection = window.getSelection();
+    const textBlock = document.querySelector(".text-block");
+
+    if (!selection.toString() || !textBlock) {
+      // Если нет выделения - скрываем меню
+      selectionMenu.classList.remove("visible");
+      return;
+    }
+
+    // Проверяем, произошло ли выделение в блоке текста
+    let isTextBlockSelection = false;
+    let node = selection.anchorNode;
+    while (node && !isTextBlockSelection) {
+      if (node === textBlock) {
+        isTextBlockSelection = true;
+      }
+      node = node.parentNode;
+    }
+
+    if (!isTextBlockSelection) {
+      selectionMenu.classList.remove("visible");
+      return;
+    }
+
+    // Позиционируем меню над выделением
+    const range = selection.getRangeAt(0);
+    const rect = range.getBoundingClientRect();
+
+    selectionMenu.style.left = `${(rect.left + rect.right) / 2}px`;
+    selectionMenu.style.top = `${rect.top - 10}px`;
+    selectionMenu.classList.add("visible");
+  });
+
+  // Скрываем меню при клике вне выделения
+  document.addEventListener("mousedown", (e) => {
+    if (
+      !selectionMenu.contains(e.target) &&
+      !e.target.classList.contains("highlight")
+    ) {
+      selectionMenu.classList.remove("visible");
+    }
+  });
+
+  // Обработчики для кнопок меню
+  const highlightBtn = selectionMenu.querySelector('[data-action="highlight"]');
+  const hideBtn = selectionMenu.querySelector('[data-action="hide"]');
+
+  // Кнопка выделения текста
+  if (highlightBtn) {
+    highlightBtn.addEventListener("click", () => {
+      highlightSelectedText();
+      selectionMenu.classList.remove("visible");
+    });
+  }
+
+  // Кнопка скрытия текста
+  if (hideBtn) {
+    hideBtn.addEventListener("click", () => {
+      hideSelectedText();
+      selectionMenu.classList.remove("visible");
+    });
+  }
+
+  // Добавляем обработчики кликов для уже существующих выделений
+  addClickHandlersToExistingHighlights();
+}
+
+// Добавляем обработчики клика к уже существующим выделениям
+function addClickHandlersToExistingHighlights() {
+  const highlights = document.querySelectorAll(".highlight");
+  highlights.forEach((highlight) => {
+    highlight.addEventListener("click", handleHighlightClick);
+  });
+}
+
+// Функция для отображения всех скрытых текстов
+function showAllHiddenText() {
+  if (removedTextFragments.length === 0) {
+    showToast("Удаленный текст отсутствует", "info");
+    return;
+  }
+
+  // Восстанавливаем исходный HTML
+  const latestFragment = removedTextFragments[0];
+  if (latestFragment && latestFragment.originalHTML) {
+    document.querySelector(".post-text-content").innerHTML =
+      latestFragment.originalHTML;
+
+    // Очищаем массив удаленных фрагментов
+    removedTextFragments = [];
+
+    // Очищаем localStorage
+    if (chatId && messageId) {
+      localStorage.removeItem(`removed_fragments_${chatId}_${messageId}`);
+    }
+
+    showToast("Текст полностью восстановлен", "success");
+  } else {
+    // Если не удалось восстановить текст, перезагружаем страницу
+    location.reload();
+  }
+}
+
+// Функция для выделения выбранного текста
+function highlightSelectedText() {
+  const selection = window.getSelection();
+  if (!selection.rangeCount || selection.isCollapsed) return; // Добавил проверку isCollapsed
+
+  const range = selection.getRangeAt(0);
+  if (range.toString().trim() === "") return;
+
+  // Создаем элемент выделения
+  const highlightEl = document.createElement("span");
+  highlightEl.className = "highlight";
+
+  try {
+    // Извлекаем содержимое выделенного диапазона
+    const fragment = range.extractContents();
+    // Помещаем извлеченный фрагмент внутрь нашего span\'а
+    highlightEl.appendChild(fragment);
+    // Вставляем span с содержимым обратно в документ на место исходного диапазона
+    range.insertNode(highlightEl);
+
+    // Добавляем обработчик для кликов по выделенному тексту
+    highlightEl.addEventListener("click", handleHighlightClick);
+
+    // Очищаем выделение
+    selection.removeAllRanges();
+
+    showToast("Текст выделен", "success");
+  } catch (e) {
+    // Более детальное логирование ошибки
+    console.error("Ошибка при выделении текста:", e.name, e.message, e);
+    showToast(
+      // Измененное сообщение об ошибке
+      "Не удалось выделить текст. Попробуйте выделить фрагмент внутри одного блока.",
+      "error"
+    );
+    // Очистим выделение в случае ошибки, чтобы избежать странного состояния
+    if (window.getSelection) {
+      if (window.getSelection().empty) {
+        // Chrome
+        window.getSelection().empty();
+      } else if (window.getSelection().removeAllRanges) {
+        // Firefox
+        window.getSelection().removeAllRanges();
+      }
+    }
+  }
+}
+
+// Функция для скрытия выбранного текста
+function hideSelectedText() {
+  const selection = window.getSelection();
+  if (!selection.rangeCount) return;
+
+  const range = selection.getRangeAt(0);
+  if (range.toString().trim() === "") return;
+
+  try {
+    // Сохраняем информацию об удаляемом тексте
+    const textContent = range.toString();
+    const rangeRect = range.getBoundingClientRect();
+
+    // Создаем маркер для возможного восстановления
+    const parentNode =
+      range.commonAncestorContainer.nodeType === 3
+        ? range.commonAncestorContainer.parentNode
+        : range.commonAncestorContainer;
+
+    // Получаем путь к узлу для последующего восстановления
+    const nodeInfo = getNodePath(parentNode);
+
+    // Запоминаем исходный HTML текстового блока до удаления
+    const originalHTML = document.querySelector(".post-text-content").innerHTML;
+
+    // Сохраняем информацию в массив
+    removedTextFragments.push({
+      text: textContent,
+      nodeInfo: nodeInfo,
+      originalHTML: originalHTML,
+      position: {
+        left: rangeRect.left,
+        top: rangeRect.top,
+        startOffset: range.startOffset,
+        endOffset: range.endOffset,
+      },
+      timestamp: new Date().getTime(),
+    });
+
+    // Сохраняем в localStorage
+    saveRemovedFragments();
+
+    // Полностью удаляем содержимое выделения
+    range.deleteContents();
+
+    // Нормализуем родительский узел (объединяем смежные текстовые узлы)
+    if (parentNode.normalize) {
+      parentNode.normalize();
+    }
+
+    // Очищаем выделение
+    selection.removeAllRanges();
+
+    showToast("Текст удален", "success");
+  } catch (e) {
+    // Более детальное логирование ошибки
+    console.error("Ошибка при удалении текста:", e.name, e.message, e);
+    showToast("Не удалось удалить текст", "error");
+    // Очистим выделение в случае ошибки, чтобы избежать странного состояния
+    if (window.getSelection) {
+      if (window.getSelection().empty) {
+        // Chrome
+        window.getSelection().empty();
+      } else if (window.getSelection().removeAllRanges) {
+        // Firefox
+        window.getSelection().removeAllRanges();
+      }
+    }
+  }
+}
+
+// Функция для получения пути к узлу DOM
+function getNodePath(node) {
+  const path = [];
+  let current = node;
+
+  // Поднимаемся вверх по дереву DOM до текстового блока
+  const textBlock = document.querySelector(".text-block");
+
+  while (current && current !== textBlock && current.parentNode) {
+    const parent = current.parentNode;
+    const children = Array.from(parent.childNodes);
+    const index = children.indexOf(current);
+
+    path.unshift({
+      index: index,
+      tagName: current.nodeType === 1 ? current.tagName.toLowerCase() : "text",
+      className: current.className || "",
+    });
+
+    current = parent;
+  }
+
+  return path;
+}
+
+// Функция для обработки клика по выделенному тексту
+function handleHighlightClick(e) {
+  // Предотвращаем всплытие события, чтобы не срабатывали другие обработчики
+  e.stopPropagation();
+
+  const highlight = e.currentTarget;
+
+  // Создаем меню для удаления выделения
+  const menu = document.createElement("div");
+  menu.className = "remove-highlight-menu";
+
+  // Кнопка для удаления выделения
+  const removeBtn = document.createElement("button");
+  removeBtn.innerHTML = '<i class="fa-solid fa-trash"></i> Удалить выделение';
+  removeBtn.addEventListener("click", () => {
+    // Извлекаем содержимое выделения
+    const textNode = document.createTextNode(highlight.textContent);
+    highlight.parentNode.replaceChild(textNode, highlight);
+    menu.remove();
+    showToast("Выделение удалено", "success");
+  });
+  menu.appendChild(removeBtn);
+
+  // Добавляем меню на страницу
+  document.body.appendChild(menu);
+
+  // Позиционируем меню рядом с выделением
+  const rect = highlight.getBoundingClientRect();
+  menu.style.left = `${rect.left}px`;
+  menu.style.top = `${rect.bottom + window.scrollY + 5}px`;
+
+  // Показываем меню
+  menu.classList.add("visible");
+
+  // Подсвечиваем активное выделение
+  highlight.classList.add("active");
+
+  // Скрываем меню при клике вне
+  const hideMenu = (event) => {
+    if (!menu.contains(event.target) && event.target !== highlight) {
+      menu.remove();
+      highlight.classList.remove("active");
+      document.removeEventListener("mousedown", hideMenu);
+    }
+  };
+
+  document.addEventListener("mousedown", hideMenu);
+}
+
+// --- Восстановленные функции панели действий ---
+
+// Инициализация кнопок панели действий
+function initActionButtons() {
+  const actionButtons = document.querySelectorAll(".btn-action");
+
+  actionButtons.forEach((button) => {
+    const action = button.getAttribute("data-action");
+
+    // Пропускаем кнопки, которые инициализируются отдельно
+    if (["toggle-media", "toggle-text", "show-hidden"].includes(action)) {
+      return;
+    }
+
+    // Удаляем существующий обработчик onclick, если он есть
+    if (button.onclick) {
+      console.log(`Удаляем старый onclick для кнопки ${action}`);
+      button.onclick = null;
+    }
+
+    // Добавляем новый обработчик
+    // Создаем именованную функцию, чтобы ее можно было удалить при необходимости
+    const handleClick = () => {
+      console.log(`Нажата кнопка действия: ${action}`);
+      switch (action) {
+        case "download":
+          downloadCurrentMedia();
+          break;
+        case "fullscreen":
+          toggleFullscreen();
+          break;
+        case "copy-text":
+          copyPostText();
+          break;
+        case "clear-highlights":
+          clearAllHighlights();
+          break;
+        default:
+          console.warn(`Неизвестное действие: ${action}`);
+      }
+    };
+
+    // Удаляем предыдущий слушатель (если был добавлен ранее)
+    button.removeEventListener("click", handleClick);
+    // Добавляем новый слушатель
+    button.addEventListener("click", handleClick);
+  });
+
+  console.log("Кнопки панели действий инициализированы");
+}
+
+// Функция для скачивания текущего медиа
+function downloadCurrentMedia() {
+  if (currentMedia) {
+    let url = "";
+    let filename = `media_${chatId}_${messageId}_${currentMediaIndex}`;
+
+    // Получаем URL в зависимости от типа элемента
+    if (currentMedia.tagName === "IMG" || currentMedia.tagName === "VIDEO") {
+      url = currentMedia.src;
+      // Пытаемся извлечь имя файла из URL или данных медиа
+      const mediaItem = mediaList[currentMediaIndex];
+      if (mediaItem && (mediaItem.filename || mediaItem.name)) {
+        filename = mediaItem.filename || mediaItem.name;
+      } else {
+        // Пытаемся извлечь имя из URL
+        try {
+          const urlParts = new URL(url).pathname.split("/");
+          const potentialFilename = urlParts[urlParts.length - 1];
+          // Простая проверка, что это похоже на имя файла
+          if (potentialFilename && potentialFilename.includes(".")) {
+            filename = potentialFilename;
+          }
+        } catch (e) {
+          /* Игнорируем ошибки парсинга URL */
+        }
+      }
+    } else if (currentMedia.classList.contains("document-preview")) {
+      const downloadLink = currentMedia.querySelector(".document-download");
+      if (downloadLink) {
+        url = downloadLink.href;
+        filename = downloadLink.getAttribute("download") || filename;
+      }
+    }
+
+    if (url) {
+      console.log(`Скачивание: ${url}, Имя файла: ${filename}`);
+      // Создаем временную ссылку для скачивания
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = filename;
+      // Устанавливаем target='_blank' для обхода блокировки всплывающих окон в некоторых браузерах
+      link.target = "_blank";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      showToast("Загрузка началась...");
+    } else {
+      showToast("Не удалось получить URL для скачивания", "error");
+    }
+  } else {
+    showToast("Нет медиа для скачивания", "info");
+  }
+}
+
+// Функция для переключения полноэкранного режима
+function toggleFullscreen() {
+  const postContainerWrapper = document.querySelector(
+    ".post-container-wrapper"
+  );
+  const button = document.querySelector(
+    '.btn-action[data-action="fullscreen"]'
+  );
+
+  if (!postContainerWrapper || !button) return;
+
+  if (!document.fullscreenElement) {
+    // Вход в полноэкранный режим
+    if (postContainerWrapper.requestFullscreen) {
+      postContainerWrapper.requestFullscreen();
+    } else if (postContainerWrapper.mozRequestFullScreen) {
+      /* Firefox */
+      postContainerWrapper.mozRequestFullScreen();
+    } else if (postContainerWrapper.webkitRequestFullscreen) {
+      /* Chrome, Safari & Opera */
+      postContainerWrapper.webkitRequestFullscreen();
+    } else if (postContainerWrapper.msRequestFullscreen) {
+      /* IE/Edge */
+      postContainerWrapper.msRequestFullscreen();
+    }
+    button.classList.add("active");
+    button.innerHTML = '<i class="fa-solid fa-compress"></i> Выйти';
+  } else {
+    // Выход из полноэкранного режима
+    if (document.exitFullscreen) {
+      document.exitFullscreen();
+    } else if (document.mozCancelFullScreen) {
+      /* Firefox */
+      document.mozCancelFullScreen();
+    } else if (document.webkitExitFullscreen) {
+      /* Chrome, Safari & Opera */
+      document.webkitExitFullscreen();
+    } else if (document.msExitFullscreen) {
+      /* IE/Edge */
+      document.msExitFullscreen();
+    }
+    button.classList.remove("active");
+    button.innerHTML = '<i class="fa-solid fa-expand"></i> Полный экран';
+  }
+}
+
+// Добавляем обработчик для синхронизации кнопки при изменении состояния fullscreen
+document.addEventListener("fullscreenchange", () => {
+  const button = document.querySelector(
+    '.btn-action[data-action="fullscreen"]'
+  );
+  if (!button) return;
+  if (!document.fullscreenElement) {
+    button.classList.remove("active");
+    button.innerHTML = '<i class="fa-solid fa-expand"></i> Полный экран';
+  } else {
+    button.classList.add("active");
+    button.innerHTML = '<i class="fa-solid fa-compress"></i> Выйти';
+  }
+});
+
+// Функция для копирования текста поста
+function copyPostText() {
+  const textContent = document.querySelector(".post-text-content");
+  if (textContent) {
+    // Создаем временный textarea для копирования
+    const textArea = document.createElement("textarea");
+    textArea.value = textContent.innerText; // Используем innerText для получения чистого текста
+    document.body.appendChild(textArea);
+    textArea.select();
+    try {
+      document.execCommand("copy");
+      showToast("Текст скопирован в буфер обмена");
+    } catch (err) {
+      showToast("Не удалось скопировать текст", "error");
+    }
+    document.body.removeChild(textArea);
+  } else {
+    showToast("Не удалось найти текст поста", "error");
+  }
+}
+
+// Функция для удаления всех выделений
+function clearAllHighlights() {
+  const highlights = document.querySelectorAll(".highlight");
+  if (highlights.length === 0) {
+    showToast("Нет выделений для удаления", "info");
+    return;
+  }
+
+  let removedCount = 0;
+  highlights.forEach((highlight) => {
+    // Не удаляем маркеры скрытого текста (если такие будут)
+    if (!highlight.classList.contains("hidden-marker")) {
+      const textNode = document.createTextNode(highlight.textContent);
+      highlight.parentNode.replaceChild(textNode, highlight);
+      removedCount++;
+    }
+  });
+
+  if (removedCount > 0) {
+    showToast(`Удалено ${removedCount} выделений`);
+    // После удаления очистим массив удаленных фрагментов, чтобы showAllHiddenText не восстановил их
+    removedTextFragments = [];
+    // Очищаем localStorage
+    if (chatId && messageId) {
+      localStorage.removeItem(`removed_fragments_${chatId}_${messageId}`);
+    }
+  } else {
+    showToast("Нет обычных выделений для удаления", "info");
+  }
+}
+
+// Функция для инициализации кнопки показа скрытого текста
+function initShowHiddenButton() {
+  const showHiddenBtn = document.querySelector(
+    '.btn-action[data-action="show-hidden"]'
+  );
+  if (showHiddenBtn) {
+    // Удаляем старый обработчик onclick, если есть
+    if (showHiddenBtn.onclick) {
+      console.log("Удаляем старый onclick для кнопки show-hidden");
+      showHiddenBtn.onclick = null;
+    }
+    // Добавляем новый обработчик через addEventListener
+    const handleClick = () => {
+      console.log("Нажата кнопка 'Показать скрытый текст'");
+      showAllHiddenText();
+    };
+    // Удаляем предыдущий слушатель (если был добавлен)
+    showHiddenBtn.removeEventListener("click", handleClick);
+    // Добавляем новый
+    showHiddenBtn.addEventListener("click", handleClick);
+    console.log("Кнопка 'Показать скрытый текст' инициализирована");
+  } else {
+    console.warn("Кнопка 'Показать скрытый текст' не найдена");
+  }
+}
+
+// --------------------------------------------------
+
+// Функция для копирования текущего масштаба на все медиа объекты
+function copyZoomToAllMedia() {
+  // Проверяем, есть ли текущий медиа объект и список медиа
+  if (
+    !currentMedia ||
+    !mediaList ||
+    mediaList.length <= 1 ||
+    typeof currentMediaIndex === "undefined"
+  ) {
+    showToast("Нет других медиа для копирования масштаба", true);
+    return;
+  }
+
+  // Получаем текущий масштаб
+  const currentZoomLevel = zoomLevel;
+
+  // Копируем масштаб для всех медиа в хранилище настроек
+  for (let i = 0; i < mediaList.length; i++) {
+    if (i !== currentMediaIndex) {
+      // Если есть запись настроек для этого медиа
+      if (mediaSettings[i]) {
+        // Сохраняем только масштаб, позицию не меняем
+        mediaSettings[i].zoom = currentZoomLevel;
+      } else {
+        // Если записи нет, создаем новую
+        mediaSettings[i] = {
+          zoom: currentZoomLevel,
+          positionX: 0,
+          positionY: 0,
+        };
+      }
+    }
+  }
+
+  console.log(
+    `Масштаб ${currentZoomLevel} скопирован на все ${mediaList.length} медиа файлов.`
+  );
+
+  // Показываем сообщение об успешном копировании
+  showToast(
+    `Масштаб ${Math.round(currentZoomLevel * 100)}% скопирован на все медиа`
+  );
+}
+
+// Handle text selection
+function handleTextSelection(e) {
+  const selection = window.getSelection();
+  const selectionMenu = document.querySelector(".selection-menu");
+
+  if (!selection || !selectionMenu) return;
+
+  // If text is selected, show the menu
+  if (selection.toString().trim() !== "") {
+    const range = selection.getRangeAt(0);
+    const rect = range.getBoundingClientRect();
+
+    // Position the menu above the selected text
+    selectionMenu.style.left = `${rect.left + rect.width / 2}px`;
+    selectionMenu.style.top = `${rect.top - 10}px`;
+    selectionMenu.classList.add("visible");
+  } else {
+    selectionMenu.classList.remove("visible");
+  }
+}
+
+// Функция для сохранения удаленных фрагментов в localStorage
+function saveRemovedFragments() {
+  if (chatId && messageId) {
+    const storageKey = `removed_fragments_${chatId}_${messageId}`;
+    localStorage.setItem(storageKey, JSON.stringify(removedTextFragments));
+    console.log(
+      "Удаленные фрагменты сохранены в localStorage",
+      removedTextFragments
+    );
+  }
+}
+
+// Функция для загрузки удаленных фрагментов из localStorage
+function loadRemovedFragments() {
+  if (chatId && messageId) {
+    const storageKey = `removed_fragments_${chatId}_${messageId}`;
+    const savedFragments = localStorage.getItem(storageKey);
+
+    if (savedFragments) {
+      try {
+        removedTextFragments = JSON.parse(savedFragments);
+        console.log(
+          "Загружены удаленные фрагменты из localStorage",
+          removedTextFragments
+        );
+      } catch (e) {
+        console.error("Ошибка при загрузке удаленных фрагментов:", e);
+        removedTextFragments = [];
+      }
+    }
+  }
+}
+
+// Функция для инициализации всех элементов управления
+function initAll() {
+  // Инициализируем основные функции для работы с постом
+  console.log("Инициализация функциональности");
+
+  // Инициализация кнопок действий
+  initActionButtons();
+
+  // Обработчики для переключения текста и медиа, если они были
+  if (document.querySelector('.btn-action[data-action="toggle-media"]')) {
+    initToggleMediaButton();
+  }
+
+  if (document.querySelector('.btn-action[data-action="toggle-text"]')) {
+    initToggleTextButton();
+  }
+
+  // Инициализация кнопки "Показать скрытый текст"
+  if (document.querySelector('.btn-action[data-action="show-hidden"]')) {
+    initShowHiddenButton();
+  }
+}
+
+// Инициализация сворачиваемых панелей в боковом меню
+function initCollapsiblePanels() {
+  const controlTitles = document.querySelectorAll(".control-title");
+
+  controlTitles.forEach((title) => {
+    // По умолчанию первая панель открыта, остальные свернуты
+    const group = title.closest(".control-group");
+    if (
+      group &&
+      group !== document.querySelector(".control-group:first-child")
+    ) {
+      group.classList.add("collapsed");
+    }
+
+    title.addEventListener("click", () => {
+      const group = title.closest(".control-group");
+      if (group) {
+        group.classList.toggle("collapsed");
+      }
+    });
+  });
+}
+
+// ... существующий код ...
+
+// Функция для инициализации кнопки скрытия медиа
+function initToggleMediaButton() {
+  const toggleMediaBtn = document.querySelector(
+    '.btn-action[data-action="toggle-media"]'
+  );
+  const postContainer = document.querySelector(".post-container");
+  const mediaBlock = document.querySelector(".media-block");
+  const textBlock = document.querySelector(".text-block");
+  const splitter = document.querySelector(".splitter");
+  // const warningMessage = document.querySelector(".warning-message"); // warningMessage не используется в этой функции
+
+  if (!toggleMediaBtn || !postContainer || !mediaBlock || !textBlock) {
+    console.warn("Не все элементы для initToggleMediaButton найдены.");
+    return;
+  }
+
+  // Удаляем возможный встроенный обработчик onclick
+  if (toggleMediaBtn.onclick) {
+    console.log("Удаляем существующий onclick обработчик для toggle-media");
+    toggleMediaBtn.onclick = null;
+  }
+
+  // Переопределяем глобальную функцию-обработчик
+  handleToggleMediaClick = () => {
+    console.log("Клик по кнопке скрытия медиа (новый обработчик)");
+    // Определяем текущее состояние (видимость медиа)
+    const isCurrentlyHidden = mediaBlock.classList.contains("hidden");
+
+    // Переключаем видимость
+    toggleMediaVisibility(!isCurrentlyHidden);
+
+    // Сохраняем состояние в localStorage
+    localStorage.setItem("media-hidden", !isCurrentlyHidden);
+
+    // Проверяем, не скрыты ли оба блока
+    checkAllHidden();
+  };
+
+  // Сначала удаляем ЛЮБОЙ предыдущий обработчик (используя старую ссылку, если была),
+  // затем добавляем новый.
+  // Это предотвращает дублирование, даже если init вызывается несколько раз.
+  toggleMediaBtn.removeEventListener("click", handleToggleMediaClick); // Удаляем, если уже есть
+  toggleMediaBtn.addEventListener("click", handleToggleMediaClick); // Добавляем новый
+
+  // Проверяем сохраненное состояние из localStorage ПОСЛЕ добавления обработчика
+  const isMediaHidden = localStorage.getItem("media-hidden") === "true";
+
+  // Применяем начальное состояние
+  if (isMediaHidden) {
+    // Вызываем функцию только если состояние действительно нужно изменить
+    if (!mediaBlock.classList.contains("hidden")) {
+      // Важно: Не вызываем toggleMediaVisibility напрямую при инициализации,
+      // чтобы избежать рекурсии или лишних пересчетов макета.
+      // Просто устанавливаем классы и стили.
+      console.log("Применяем начальное состояние для медиа: скрыто");
+      mediaBlock.classList.add("hidden");
+      if (splitter) splitter.classList.add("hidden");
+      postContainer.classList.add("media-hidden");
+      toggleMediaBtn.classList.add("active");
+      // Корректируем текстовый блок, если он видим
+      if (!textBlock.classList.contains("text-hidden")) {
+        const currentLayout = getLayoutType();
+        textBlock.style.width = "100%";
+        textBlock.style.height = "auto";
+        textBlock.style.minHeight = "300px";
+        textBlock.style.overflowY = "auto";
+        if (currentLayout === "left" || currentLayout === "right") {
+          textBlock.style.maxHeight = "none";
+          textBlock.style.display = "block";
+          textBlock.style.gridColumn = "1";
+          textBlock.style.gridRow = "1";
+        }
+      }
+      // Обновляем состояние checkAllHidden
+      checkAllHidden();
+      // Пересчитываем макет один раз после всех начальных установок
+      // Это может быть сделано в конце DOMContentLoaded
+    }
+  }
+}
+
+// Функция для переключения видимости медиа (УЛУЧШЕНА ЛОГИКА СТИЛЕЙ)
+function toggleMediaVisibility(hide) {
+  const postContainer = document.querySelector(".post-container");
+  const mediaBlock = document.querySelector(".media-block");
+  const textBlock = document.querySelector(".text-block");
+  const splitter = document.querySelector(".splitter");
+  const toggleMediaBtn = document.querySelector(
+    '.btn-action[data-action="toggle-media"]'
+  );
+
+  if (!postContainer || !mediaBlock || !textBlock || !toggleMediaBtn) {
+    console.error("toggleMediaVisibility: Не найдены все необходимые элементы");
+    return;
+  }
+
+  console.log("toggleMediaVisibility:", hide ? "скрыть" : "показать");
+
+  const currentLayout = getLayoutType();
+  console.log("Текущий макет:", currentLayout);
+
+  if (hide) {
+    // Скрываем медиа
+    mediaBlock.classList.add("hidden");
+    mediaBlock.style.display = "none"; // Явно устанавливаем стиль display: none
+    if (splitter) {
+      splitter.classList.add("hidden");
+      splitter.style.display = "none";
+    }
+    postContainer.classList.add("media-hidden");
+    toggleMediaBtn.classList.add("active");
+
+    // Показываем текстовый блок на всю ширину (если он не скрыт) - прямыми стилями
+    if (!textBlock.classList.contains("text-hidden")) {
+      // Прямое задание стилей вместо класса
+      textBlock.style.width = "100%";
+      textBlock.style.height = "auto";
+      textBlock.style.minHeight = "300px";
+      textBlock.style.overflowY = "auto";
+      textBlock.style.maxWidth = "100%";
+
+      // Дополнительные стили в зависимости от макета
+      if (currentLayout === "left" || currentLayout === "right") {
+        textBlock.style.maxHeight = "none";
+        textBlock.style.display = "block";
+        textBlock.style.gridColumn = "1";
+        textBlock.style.gridRow = "1";
+      }
+
+      // Устанавливаем одноколоночную сетку для контейнера
+      postContainer.style.gridTemplateColumns = "1fr";
+      postContainer.style.gridTemplateRows = "1fr";
+    }
+  } else {
+    // Показываем медиа
+    mediaBlock.classList.remove("hidden");
+    mediaBlock.style.display = ""; // Убираем стиль display: none
+
+    if (splitter && !textBlock.classList.contains("text-hidden")) {
+      splitter.classList.remove("hidden");
+      splitter.style.display = ""; // Убираем стиль display: none
+    }
+
+    postContainer.classList.remove("media-hidden");
+    toggleMediaBtn.classList.remove("active");
+
+    // Сбрасываем стили текстового блока
+    textBlock.style.width = "";
+    textBlock.style.height = "";
+    textBlock.style.minHeight = "";
+    textBlock.style.overflowY = "";
+    textBlock.style.maxHeight = "";
+    textBlock.style.display = "";
+    textBlock.style.gridColumn = "";
+    textBlock.style.gridRow = "";
+    textBlock.style.maxWidth = "";
+
+    // Сбрасываем стили для контейнера - вернем grid под текущий макет
+    postContainer.style.gridTemplateColumns = "";
+    postContainer.style.gridTemplateRows = "";
+  }
+
+  // Перерасчитываем макет и текст после изменения
+  setTimeout(() => {
+    console.log("Пересчет макета после toggleMediaVisibility");
+    if (typeof applyLayoutAdjustments === "function") {
+      applyLayoutAdjustments(currentLayout);
+    }
+    if (typeof adjustTextContent === "function") {
+      adjustTextContent();
+    }
+
+    // Дополнительная проверка, что все применилось правильно
+    if (hide) {
+      console.log("Проверка, что медиа блок скрыт");
+      if (mediaBlock.style.display !== "none") {
+        console.warn("Медиа блок не скрыт, исправляем");
+        mediaBlock.style.display = "none";
+      }
+
+      if (!textBlock.classList.contains("text-hidden")) {
+        console.log("Проверка стилей текстового блока");
+        if (textBlock.style.width !== "100%") {
+          console.warn("Ширина текстового блока не 100%, исправляем");
+          textBlock.style.width = "100%";
+        }
+      }
+    }
+  }, 10); // Небольшая задержка для уверенности
+}
+
+// Функция для определения текущего макета
+function getLayoutType() {
+  const postContainer = document.querySelector(".post-container");
+  if (!postContainer) return "left"; // Возвращаем дефолт, если контейнер не найден
+
+  if (postContainer.classList.contains("layout-left")) {
+    return "left";
+  } else if (postContainer.classList.contains("layout-right")) {
+    return "right";
+  } else if (postContainer.classList.contains("layout-top")) {
+    return "top";
+  } else {
+    return "left"; // По умолчанию левый макет
+  }
+}
+
+// Функция для инициализации кнопки скрытия текста
+function initToggleTextButton() {
+  try {
+    console.log("Инициализация кнопки скрытия текста...");
+
+    const toggleTextBtn = document.querySelector(
+      '.btn-action[data-action="toggle-text"]'
+    );
+    if (!toggleTextBtn) {
+      console.error("Ошибка: Кнопка toggle-text не найдена");
+      return;
+    }
+
+    const postContainer = document.querySelector(".post-container");
+    if (!postContainer) {
+      console.error("Ошибка: post-container не найден");
+      return;
+    }
+
+    const textBlock = document.querySelector(".text-block");
+    if (!textBlock) {
+      console.error("Ошибка: text-block не найден");
+      return;
+    }
+
+    const mediaBlock = document.querySelector(".media-block");
+    const splitter = document.querySelector(".splitter");
+
+    console.log("Все необходимые элементы для initToggleTextButton найдены");
+
+    // Удаляем возможный встроенный обработчик onclick
+    if (toggleTextBtn.onclick) {
+      console.log("Удаляем существующий onclick обработчик для toggle-text");
+      toggleTextBtn.onclick = null;
+    }
+
+    // Переопределяем глобальную функцию-обработчик
+    handleToggleTextClick = (event) => {
+      event.preventDefault(); // Предотвращаем стандартное поведение, если это ссылка
+      console.log("Клик по кнопке скрытия текста (новый обработчик)");
+
+      // Определяем текущее состояние
+      const isCurrentlyHidden = textBlock.classList.contains("text-hidden");
+      console.log(
+        "Текущее состояние текста: " + (isCurrentlyHidden ? "скрыт" : "показан")
+      );
+
+      // Переключаем видимость
+      toggleTextVisibility(!isCurrentlyHidden);
+
+      // Сохраняем состояние в localStorage
+      localStorage.setItem("text-hidden", !isCurrentlyHidden);
+
+      // Проверяем, не скрыты ли оба блока
+      checkAllHidden();
+    };
+
+    // Сначала удаляем ЛЮБОЙ предыдущий обработчик, затем добавляем новый.
+    toggleTextBtn.removeEventListener("click", handleToggleTextClick);
+    toggleTextBtn.addEventListener("click", handleToggleTextClick);
+
+    // Проверяем сохраненное состояние из localStorage ПОСЛЕ добавления обработчика
+    const isTextHidden = localStorage.getItem("text-hidden") === "true";
+
+    // Применяем начальное состояние
+    if (isTextHidden) {
+      console.log("Применяем начальное состояние: текст скрыт");
+      if (!textBlock.classList.contains("text-hidden")) {
+        // Не вызываем toggleTextVisibility напрямую при инициализации
+        textBlock.classList.add("text-hidden");
+        if (splitter) splitter.classList.add("hidden");
+        postContainer.classList.add("text-hidden");
+        toggleTextBtn.classList.add("active");
+        // Корректируем медиа блок, если он видим
+        if (mediaBlock && !mediaBlock.classList.contains("hidden")) {
+          mediaBlock.style.width = "100%";
+          mediaBlock.style.height = "auto";
+          mediaBlock.style.minHeight = "300px";
+        }
+        // Обновляем состояние checkAllHidden
+        checkAllHidden();
+      }
+    }
+
+    console.log("Инициализация кнопки скрытия текста завершена");
+  } catch (error) {
+    console.error("Ошибка при инициализации кнопки скрытия текста:", error);
+  }
+}
+
+// Функция для переключения видимости текста (УЛУЧШЕНА ЛОГИКА СТИЛЕЙ)
+function toggleTextVisibility(hide) {
+  const postContainer = document.querySelector(".post-container");
+  const textBlock = document.querySelector(".text-block");
+  const mediaBlock = document.querySelector(".media-block");
+  const splitter = document.querySelector(".splitter");
+  const toggleTextBtn = document.querySelector(
+    '.btn-action[data-action="toggle-text"]'
+  );
+
+  if (!postContainer || !textBlock || !toggleTextBtn) {
+    console.error("toggleTextVisibility: Не найдены все необходимые элементы");
+    return;
+  }
+
+  console.log(
+    "toggleTextVisibility: " + (hide ? "скрываем" : "показываем") + " текст"
+  );
+
+  const currentLayout = getLayoutType();
+
+  if (hide) {
+    // Скрываем текст
+    textBlock.classList.add("text-hidden");
+    textBlock.style.display = "none"; // Явно устанавливаем стиль display: none
+
+    if (splitter) {
+      splitter.classList.add("hidden");
+      splitter.style.display = "none";
+    }
+    postContainer.classList.add("text-hidden");
+    toggleTextBtn.classList.add("active");
+
+    // Показываем медиа блок на всю ширину (если он не скрыт) - прямыми стилями
+    if (mediaBlock && !mediaBlock.classList.contains("hidden")) {
+      // Прямое задание стилей вместо класса
+      mediaBlock.style.width = "100%";
+      mediaBlock.style.height = "auto";
+      mediaBlock.style.minHeight = "300px";
+      mediaBlock.style.maxWidth = "100%";
+
+      // Дополнительные стили в зависимости от макета
+      if (currentLayout === "left" || currentLayout === "right") {
+        mediaBlock.style.maxHeight = "none";
+        mediaBlock.style.display = "block";
+        mediaBlock.style.gridColumn = "1";
+        mediaBlock.style.gridRow = "1";
+      }
+
+      // Устанавливаем одноколоночную сетку для контейнера
+      postContainer.style.gridTemplateColumns = "1fr";
+      postContainer.style.gridTemplateRows = "1fr";
+    }
+  } else {
+    // Показываем текст
+    textBlock.classList.remove("text-hidden");
+    textBlock.style.display = ""; // Убираем стиль display: none
+
+    if (splitter && mediaBlock && !mediaBlock.classList.contains("hidden")) {
+      splitter.classList.remove("hidden");
+      splitter.style.display = ""; // Убираем стиль display: none
+    }
+
+    postContainer.classList.remove("text-hidden");
+    toggleTextBtn.classList.remove("active");
+
+    // Сбрасываем стили медиа блока
+    if (mediaBlock) {
+      mediaBlock.style.width = "";
+      mediaBlock.style.height = "";
+      mediaBlock.style.minHeight = "";
+      mediaBlock.style.maxHeight = "";
+      mediaBlock.style.display = "";
+      mediaBlock.style.gridColumn = "";
+      mediaBlock.style.gridRow = "";
+      mediaBlock.style.maxWidth = "";
+    }
+
+    // Сбрасываем стили для контейнера - вернем grid под текущий макет
+    postContainer.style.gridTemplateColumns = "";
+    postContainer.style.gridTemplateRows = "";
+  }
+
+  // Перерасчитываем после изменения
+  setTimeout(function () {
+    console.log("Пересчет макета после toggleTextVisibility");
+    try {
+      if (typeof adjustTextContent === "function") {
+        adjustTextContent();
+      }
+      // Дополнительно пересчитаем макет
+      if (typeof applyLayoutAdjustments === "function") {
+        applyLayoutAdjustments(currentLayout);
+      }
+
+      // Дополнительная проверка, что все применилось правильно
+      if (hide) {
+        console.log("Проверка, что текстовый блок скрыт");
+        if (textBlock.style.display !== "none") {
+          console.warn("Текстовый блок не скрыт, исправляем");
+          textBlock.style.display = "none";
+        }
+
+        if (mediaBlock && !mediaBlock.classList.contains("hidden")) {
+          console.log("Проверка стилей медиа блока");
+          if (mediaBlock.style.width !== "100%") {
+            console.warn("Ширина медиа блока не 100%, исправляем");
+            mediaBlock.style.width = "100%";
+          }
+        }
+      }
+    } catch (error) {
+      console.error(
+        "Ошибка при вызове adjustTextContent/applyLayoutAdjustments:",
+        error
+      );
+    }
+  }, 10); // Небольшая задержка для уверенности
+}
+
+// Функция для проверки, не скрыты ли оба блока
+function checkAllHidden() {
+  const mediaBlock = document.querySelector(".media-block");
+  const textBlock = document.querySelector(".text-block");
+  const warningMessage = document.querySelector(".warning-message");
+
+  if (!mediaBlock || !textBlock || !warningMessage) {
+    console.warn("checkAllHidden: Не найдены все элементы для проверки.");
+    return;
+  }
+
+  const isMediaHidden = mediaBlock.classList.contains("hidden");
+  const isTextHidden = textBlock.classList.contains("text-hidden");
+
+  // Если оба блока скрыты, показываем предупреждение
+  if (isMediaHidden && isTextHidden) {
+    warningMessage.classList.add("visible");
+  } else {
+    warningMessage.classList.remove("visible");
+  }
+}

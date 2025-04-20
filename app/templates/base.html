@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <title>{% block title %}Telegram Post Viewer{% endblock %}</title>
+    <link
+      rel="stylesheet"
+      href="{{ url_for('static', filename='css/style.css') }}"
+    />
+    <!-- Подключаем html2canvas -->
+    <script
+      src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"
+      integrity="sha512-BNa5WOVbS3e0EpgdDXOhK7rAQv3KhF0+QSV+RaBOi0ixK9c7Unkmr3Yr9+Rp+G9ja80qzq9S+ZuzErprBTz6pg=="
+      crossorigin="anonymous"
+      referrerpolicy="no-referrer"
+    ></script>
+    <script src="{{ url_for('static', filename='js/script.js') }}"></script>
+  </head>
+  <body>
+    <header>
+      <div class="header-container">
+        <h1>Telegram Post Viewer</h1>
+        <form action="/view_post" method="get" class="url-form">
+          <input
+            type="text"
+            name="url"
+            placeholder="https://t.me/..."
+            required
+          />
+          <button type="submit">Просмотр</button>
+        </form>
+      </div>
+    </header>
+
+    <main>{% block content %}{% endblock %}</main>
+
+    <footer>
+      <p>&copy; 2025 Telegram Post Viewer</p>
+    </footer>
+  </body>
+</html>

@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Mercator Telegram</title>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+    />
+    <link
+      rel="stylesheet"
+      href="{{ url_for('static', filename='css/styles.css') }}"
+    />
+    <!-- Предотвращение кеширования -->
+    <meta
+      http-equiv="Cache-Control"
+      content="no-cache, no-store, must-revalidate"
+    />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="0" />
+  </head>
+  <body>
+    <div class="app-container">
+      <!-- Верхняя панель с поиском -->
+      <header class="app-header">
+        <div class="header-content">
+          <h1 class="app-title">Mercator Telegram</h1>
+          <form
+            class="url-form"
+            method="GET"
+            action="{{ url_for('main.view_post') }}"
+          >
+            <div class="form-group">
+              <input
+                type="text"
+                name="url"
+                id="url"
+                class="form-control"
+                placeholder="Введите URL поста Telegram"
+                value="{{ url if url else '' }}"
+              />
+              <button type="submit" class="btn" title="Загрузить пост">
+                <i class="fa-solid fa-arrow-right"></i>
+              </button>
+            </div>
+          </form>
+        </div>
+      </header>
+
+      <!-- Основное содержимое -->
+      <main class="main-content">
+        <!-- Основная область с контентом -->
+        <div class="content-area">
+          {% if error %}
+          <div class="error-message">
+            <i class="fa-solid fa-circle-exclamation"></i>
+            <p>{{ error }}</p>
+          </div>
+          {% endif %} {% if channel_info %}
+          <!-- Информация о канале - теперь внутри content-area, перед post-container -->
+          <div class="channel-info">
+            <a
+              href="https://t.me/{{ channel_info.username }}"
+              target="_blank"
+              class="channel-link"
+            >
+              <div class="channel-avatar">
+                {% if channel_info.photo %}
+                <img
+                  src="/channel_photo/{{ chat }}"
+                  alt="{{ channel_info.title }}"
+                />
+                {% else %}
+                <div class="default-avatar">{{ channel_info.title[0] }}</div>
+                {% endif %}
+              </div>
+              <div class="channel-title">{{ channel_info.title }}</div>
+            </a>
+          </div>
+          {% endif %} {% if text and chat and msg_id %}
+          <div class="post-container-wrapper">
+            <div id="post-container" class="post-container layout-left">
+              <!-- Блок с медиа -->
+              <div class="media-block">
+                <div class="media-content">
+                  {% if media_list %}
+                  <div class="current-media">
+                    <!-- Медиа загружается через JavaScript -->
+                  </div>
+                  <div class="media-controls">
+                    <button
+                      class="media-nav prev-media"
+                      title="Предыдущее медиа"
+                    >
+                      <i class="fa-solid fa-chevron-left"></i>
+                    </button>
+                    <div class="media-counter">
+                      <span class="current-index">1</span>/<span
+                        class="total-count"
+                        >{{ media_list|length }}</span
+                      >
+                    </div>
+                    <button
+                      class="media-nav next-media"
+                      title="Следующее медиа"
+                    >
+                      <i class="fa-solid fa-chevron-right"></i>
+                    </button>
+                  </div>
+                  {% else %}
+                  <div class="no-media">
+                    <i class="fa-solid fa-photo-film"></i>
+                    <p>Нет медиафайлов</p>
+                  </div>
+                  {% endif %}
+                </div>
+              </div>
+
+              <!-- Разделитель -->
+              <div class="splitter">
+                <div class="splitter-handle">
+                  <div class="splitter-arrow"></div>
+                  <div class="splitter-arrow"></div>
+                </div>
+              </div>
+
+              <!-- Блок с текстом -->
+              <div class="text-block">
+                <div class="post-text-content">{{ text|safe }}</div>
+              </div>
+            </div>
+          </div>
+          {% else %}
+          <!-- Пустое состояние, если пост не загружен -->
+          <div class="empty-state">
+            <div class="empty-icon">
+              <i class="fa-solid fa-message"></i>
+            </div>
+            <h2>Введите URL поста Telegram</h2>
+            <p>Пример: https://t.me/channel_name/1234</p>
+          </div>
+          {% endif %}
+        </div>
+
+        <!-- Боковая панель управления -->
+        <div class="controls-sidebar">
+          <!-- Группа управления макетом -->
+          <div class="control-group">
+            <div class="control-title">Расположение медиа</div>
+            <div class="controls">
+              <button
+                class="btn-layout active"
+                data-layout="left"
+                title="Медиа слева"
+              >
+                <i class="fa-solid fa-image-portrait"></i>
+              </button>
+              <button class="btn-layout" data-layout="top" title="Медиа сверху">
+                <i class="fa-solid fa-panorama"></i>
+              </button>
+              <button
+                class="btn-layout"
+                data-layout="right"
+                title="Медиа справа"
+              >
+                <i class="fa-solid fa-image-portrait fa-flip-horizontal"></i>
+              </button>
+            </div>
+          </div>
+
+          <!-- Группа управления размером шрифта -->
+          <div class="control-group">
+            <div class="control-title">
+              Размер текста <span class="font-size-display">100%</span>
+            </div>
+            <div class="controls">
+              <button
+                class="btn-font-size"
+                data-action="decrease"
+                title="Уменьшить размер шрифта"
+              >
+                <i class="fa-solid fa-minus"></i>
+              </button>
+              <button
+                class="btn-font-size"
+                data-action="increase"
+                title="Увеличить размер шрифта"
+              >
+                <i class="fa-solid fa-plus"></i>
+              </button>
+              <button
+                class="btn-font-size"
+                data-action="reset"
+                title="Сбросить размер шрифта"
+              >
+                <i class="fa-solid fa-rotate"></i>
+              </button>
+            </div>
+          </div>
+
+          <!-- Группа управления масштабом медиа -->
+          <div class="control-group">
+            <div class="control-title">
+              Масштаб медиа <span class="zoom-value">100%</span>
+            </div>
+            <div class="controls">
+              <button class="btn-zoom" data-action="out" title="Уменьшить">
+                <i class="fa-solid fa-magnifying-glass-minus"></i>
+              </button>
+              <button class="btn-zoom" data-action="in" title="Увеличить">
+                <i class="fa-solid fa-magnifying-glass-plus"></i>
+              </button>
+              <button
+                class="btn-zoom"
+                data-action="reset"
+                title="Сбросить масштаб"
+              >
+                <i class="fa-solid fa-rotate"></i>
+              </button>
+              <button
+                class="btn-zoom"
+                data-action="copy-zoom"
+                title="Скопировать масштаб"
+              >
+                <i class="fa-solid fa-clone"></i>
+              </button>
+            </div>
+          </div>
+
+          <!-- Группа действий с текстом -->
+          <div class="control-group">
+            <div class="control-title">Действия</div>
+            <div class="controls">
+              <!-- 1. Переключить видимость Медиа -->
+              <button
+                class="btn-action"
+                data-action="toggle-media"
+                title="Скрыть/показать медиа"
+              >
+                <i class="fa-solid fa-image"></i>
+              </button>
+              <!-- 2. Переключить видимость Текста -->
+              <button
+                class="btn-action"
+                data-action="toggle-text"
+                title="Скрыть/показать текст"
+              >
+                <i class="fa-solid fa-align-justify"></i>
+              </button>
+              <!-- 3. Показать/Скрыть скрытый текст -->
+              <button
+                class="btn-action"
+                data-action="show-hidden"
+                title="Вернуть скрытый текст"
+              >
+                <i class="fa-solid fa-eye"></i>
+              </button>
+              <!-- 4. Очистить выделения -->
+              <button
+                class="btn-action"
+                data-action="clear-highlights"
+                title="Очистить все выделения"
+              >
+                <i class="fa-solid fa-eraser"></i>
+              </button>
+              <!-- 5. Скачать архив -->
+              <button
+                class="btn-action"
+                data-action="download"
+                title="Скачать архив"
+              >
+                <i class="fa-solid fa-download"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+      </main>
+
+      <!-- Меню выделения -->
+      <div class="selection-menu">
+        <button data-action="highlight" title="Выделить текст">
+          <i class="fa-solid fa-highlighter"></i>
+        </button>
+        <button data-action="hide" title="Удалить текст">
+          <i class="fa-solid fa-trash-alt"></i>
+        </button>
+      </div>
+
+      <!-- Предупреждение о скрытых блоках -->
+      <div class="warning-message">
+        <i class="fa-solid fa-exclamation-triangle"></i>
+        Вы скрыли все блоки
+      </div>
+    </div>
+
+    <!-- JavaScript переменные -->
+    <script>
+      window.chatId = "{{ chat if chat else '' }}";
+      window.messageId = "{{ msg_id if msg_id else '' }}";
+      window.placeholderSrc =
+        "{{ url_for('static', filename='img/placeholder.png') }}";
+
+      // Передаем как строку JSON и парсим в JS
+      const mediaListJson =
+        '{{ media_list|tojson|safe if media_list else "[]" }}';
+      try {
+        window.mediaList = JSON.parse(mediaListJson);
+      } catch (e) {
+        console.error("Error parsing mediaList JSON:", e, mediaListJson);
+        window.mediaList = []; // Безопасное значение по умолчанию
+      }
+
+      // Для отладки
+      console.log("Parsed mediaList:", window.mediaList);
+    </script>
+    <!-- Библиотека для создания скриншотов -->
+    <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
+    <script
+      type="module"
+      src="{{ url_for('static', filename='js/post.js') }}"
+    ></script>
+  </body>
+</html>
